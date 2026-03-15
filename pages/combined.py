@@ -1741,7 +1741,6 @@ def update_services_welcome(d):
     State("store-q2",  "data"),
     State("store-q4",  "data"),
     State("auth-store","data"),
-    prevent_initial_call=True,
 )
 def update_provider_content(option, q2_data, q4_data, auth_data):
     if not auth_data or not q2_data or not auth_data.get("username", "").startswith("234"):
@@ -2237,7 +2236,7 @@ def render_services_sidebar(view, auth_data):
         html.Hr(),
         html.H5("Add New Provider", style={"color": "purple"}),
         dbc.Label("Code"),         dbc.Input(id="services-code",          type="text", placeholder="Enter Code"),         html.Br(),
-        dbc.Label("State"),        dbc.Input(id="services-state",         type="text", placeholder="Enter State"),        html.Br(),
+        dbc.Label("State"),        dcc.Dropdown(id="services-state", options=[], placeholder="Select State"),        html.Br(),
         dbc.Label("Provider Name"),dbc.Input(id="services-provider-name", type="text", placeholder="Enter Provider Name"),html.Br(),
         dbc.Label("Address"),      dbc.Input(id="services-address",       type="text", placeholder="Enter Address"),      html.Br(),
         dbc.Label("Provider"),     dbc.Input(id="services-provider",      type="text", placeholder="Enter Provider"),     html.Br(),
@@ -2280,6 +2279,20 @@ def render_services_sidebar(view, auth_data):
 )
 def populate_state_filter(ready, q3_data):
     if not ready or not q3_data:
+        return []
+    df = pd.DataFrame(q3_data)
+    if 'STATE' not in df.columns:
+        return []
+    return [{"label": s, "value": s} for s in sorted(df['STATE'].dropna().unique())]
+
+
+@callback(
+    Output("services-state", "options"),
+    Input("services-view-store", "data"),
+    State("store-q3", "data"),
+)
+def populate_services_state_dropdown(view, q3_data):
+    if not q3_data:
         return []
     df = pd.DataFrame(q3_data)
     if 'STATE' not in df.columns:

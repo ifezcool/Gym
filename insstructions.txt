@@ -1,0 +1,5 @@
+on the provider view in the Wellness section of the portal, the 'View Wellness Enrollee and benefits' is selected, which is fine but to actually see the submission status table, you have to click off it to the other button the  'submit Wellness results' radio button, then click back onto the 'View Wellness Enrollee and benefits' button 
+for the MedicalServices view, when they are adding a new provider to the the Wellness provider table, 'State' input box should be a drop down section. To get the list of all states you could do a distinct query for states like this SELECT DISTINCT STATE
+FROM [dbo].[demo_Updated_Wellness_Providers], or any other method that would work for getting the states dropdown
+
+
