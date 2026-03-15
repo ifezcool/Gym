@@ -4,11 +4,10 @@ import dash_bootstrap_components as dbc
 
 register_page(__name__, path='/', title='Home')
 
-# Layout for the home page
 layout = html.Div([
     # Header Section
     html.Div([
-        html.H1("Welcome to AVON HMO Portal", 
+        html.H1("Welcome to AVON HMO Portal",
                style={
                    'textAlign': 'center',
                    'color': '#5a4470',
@@ -30,7 +29,7 @@ layout = html.Div([
         'borderRadius': '0 0 30px 30px',
         'boxShadow': '0 10px 30px rgba(0,0,0,0.1)'
     }),
-    
+
     # Navigation Cards Section
     html.Div([
         html.Div([
@@ -39,7 +38,7 @@ layout = html.Div([
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
-                            html.H3("🏋️ Gym Portal", 
+                            html.H3("🏋️ Gym Portal",
                                    className="card-title",
                                    style={
                                        'color': '#5a4470',
@@ -85,12 +84,12 @@ layout = html.Div([
                         'transition': 'transform 0.3s ease'
                     })
                 ], width=6),
-                
+
                 # Wellness Portal Card
                 dbc.Col([
                     dbc.Card([
                         dbc.CardBody([
-                            html.H3("🧘 Wellness Portal", 
+                            html.H3("🧘 Wellness Portal",
                                    className="card-title",
                                    style={
                                        'color': '#5a4470',
@@ -99,7 +98,7 @@ layout = html.Div([
                                        'marginBottom': '15px',
                                        'textAlign': 'center'
                                    }),
-                            html.P("Coming soon! Access wellness resources, mental health support, and holistic care.",
+                            html.P("Book your annual wellness checkup, check eligibility, and access wellness resources.",
                                    className="card-text",
                                    style={
                                        'color': '#666',
@@ -108,19 +107,24 @@ layout = html.Div([
                                        'textAlign': 'center'
                                    }),
                             html.Div([
-                                dbc.Button(
-                                    "Coming Soon",
-                                    disabled=True,
-                                    style={
-                                        'width': '100%',
-                                        'padding': '12px',
-                                        'fontSize': '1.1rem',
-                                        'fontWeight': '600',
-                                        'borderRadius': '10px',
-                                        'background': '#ccc',
-                                        'border': 'none',
-                                        'cursor': 'not-allowed'
-                                    }
+                                dcc.Link(
+                                    dbc.Button(
+                                        "Go to Wellness Portal",
+                                        style={
+                                            'width': '100%',
+                                            'padding': '12px',
+                                            'fontSize': '1.1rem',
+                                            'fontWeight': '600',
+                                            'borderRadius': '10px',
+                                            'background': 'linear-gradient(135deg, #6B46C1 0%, #805AD5 100%)',
+                                            'border': 'none',
+                                            'color': 'white',
+                                            'boxShadow': '0 4px 15px rgba(107, 70, 193, 0.3)',
+                                            'transition': 'all 0.3s ease',
+                                            'cursor': 'pointer'
+                                        }
+                                    ),
+                                    href="/wellness"
                                 )
                             ])
                         ])
@@ -129,17 +133,17 @@ layout = html.Div([
                         'boxShadow': '0 10px 30px rgba(0,0,0,0.1), 0 6px 10px rgba(0,0,0,0.08)',
                         'border': 'none',
                         'height': '100%',
-                        'opacity': '0.8'
+                        'transition': 'transform 0.3s ease'
                     })
-                ], width=6)
+                ], width=6),
             ], style={'gap': '30px'})
         ], style={
             'maxWidth': '1000px',
             'margin': '0 auto',
-            'padding': '20px'
+            'padding': '40px 20px'
         })
     ]),
-    
+
     # Footer
     html.Div([
         html.P("© 2026 AVON HMO - Your Health, Our Priority",
@@ -149,10 +153,8 @@ layout = html.Div([
                    'fontSize': '0.9rem',
                    'padding': '20px'
                })
-    ], style={
-        'marginTop': '50px'
-    })
-    
+    ], style={'marginTop': '50px'})
+
 ], style={
     'backgroundColor': '#d4c4e0',
     'minHeight': '100vh',

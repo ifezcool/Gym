@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, State, callback_context
+from dash import dcc, html, Input, Output, State, callback, callback_context, register_page
 from dash_svg import Svg, Path
 from dash import dash_table
 import dash_bootstrap_components as dbc
@@ -21,7 +21,9 @@ from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from datetime import datetime
 
-# ── Styles (inlined from styles.py) ──────────────────────────────────────────
+register_page(__name__, path='/wellness', title='AVON HMO Wellness Portal')
+
+# ── Styles ────────────────────────────────────────────────────────────────────
 PURPLE_TABLE_STYLE = {
     "style_header": {
         "backgroundColor": "#59058d",
@@ -66,7 +68,6 @@ def get_engine():
 
 
 engine = get_engine()
-
 
 # =============================================================================
 # SQL QUERIES  — Wellness Dashboard
@@ -150,19 +151,15 @@ filled_wellness_df = None
 
 def load_all_data():
     global wellness_providers, loyalty_enrollees, filled_wellness_df
-
     print("[LOADING] Loading wellness providers data...")
     wellness_providers = cached_read_sql(query3w)
     print("[COMPLETE] Wellness providers data loaded!")
-
     print("[LOADING] Loading loyalty enrollees data...")
     loyalty_enrollees = cached_read_sql(query4w)
     print("[COMPLETE] Loyalty enrollees data loaded!")
-
     print("[LOADING] Loading filled wellness data...")
     filled_wellness_df = cached_read_sql(query2w)
     print("[COMPLETE] Filled wellness data loaded!")
-
     filled_wellness_df['MemberNo'] = filled_wellness_df['MemberNo'].astype(str)
     loyalty_enrollees['MemberNo']  = loyalty_enrollees['MemberNo'].astype(str)
     print("[ALL COMPLETE] All startup data loaded successfully!")
@@ -262,7 +259,7 @@ def send_email_with_attachment(recipient_email, enrollee_name, provider_name,
                                bcc_email='ifeoluwa.adeniyi@avonhealthcare.com'):
     sender_email   = 'noreply@avonhealthcare.com'
     email_password = os.environ.get('email_password')
-    recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'  # test override
+    recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
 
     if selected_date and selected_provider and wellness_benefits:
         body = f"""
@@ -320,7 +317,7 @@ def send_pa_code_email(recipient_email, enrollee_name, selected_date, selected_p
                        bcc_email='ifeoluwa.adeniyi@avonhealthcare.com'):
     sender_email   = 'noreply@avonhealthcare.com'
     email_password = os.environ.get('email_password')
-    recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'  # test override
+    recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
     body = f"""
         Dear {enrollee_name},<br><br>
         We hope you are staying safe.<br><br>
@@ -508,7 +505,6 @@ def build_health_questionnaire():
         ('j. SUBSTANCE DEPENDENCY',               'resp_1_j'),
         ('k. MENTAL ILLNESS',                     'resp_1_k'),
     ]
-
     personal_questions = [
         ('i. HYPERTENSION (HIGH BLOOD PRESSURE)', 'resp_2_a'),
         ('ii. DIABETES',                          'resp_2_b'),
@@ -520,7 +516,6 @@ def build_health_questionnaire():
         ('viii. ARTHRITIS/LOW BACK PAIN',         'resp_2_h'),
         ('ix. ANXIETY/DEPRESSION',                'resp_2_i'),
     ]
-
     surgical_questions = [
         ('i. CEASAREAN SECTION', 'resp_3_a'),
         ('ii. FRACTURE REPAIR',  'resp_3_b'),
@@ -529,7 +524,6 @@ def build_health_questionnaire():
         ('v. APPENDICETOMY',     'resp_3_e'),
         ('vi. SPINE SURGERY',    'resp_3_f'),
     ]
-
     wellness_questions = [
         ('a. I avoid eating foods that are high in fat',                                                         'resp_4_a'),
         ('b. I have been avoiding the use or minimise my exposure to alcohol',                                   'resp_4_b'),
@@ -634,8 +628,6 @@ def build_health_questionnaire():
 def build_enrollment_form(enrollee_data):
     client   = enrollee_data['client']
     policy   = enrollee_data['policy']
-    age      = enrollee_data['age']
-    relation = enrollee_data['relation']
 
     current_date = dt.date.today()
     max_date     = dt.date(2027, 12, 31)
@@ -788,14 +780,14 @@ def send_confirmation_email(enrollee_id, member_name, email, provider, benefits,
     <b>Kindly note that your wellness result will only be available two (2) weeks after your visit to the provider for your wellness check.</b><br><br>
     Should you require assistance at any time or wish to make any complaint about the service at any of the facilities,
     please contact our Call-Center at 0700-277-9800  or send us a chat on WhatsApp at 0912-603-9532.
-    You can also send us an email at callcentre@avonhealthcare.com. Please be assured that an agent would always be on standby to assist you.<br><br>
+    You can also send us an email at callcentre@avonhealthcare.com.<br><br>
     Thank you for choosing Avon HMO,<br><br>
     Medical Services.<br>
     '''
 
     text_after_table1 = f'''
     <br>Kindly note that wellness exercise at your selected facility is strictly by appointment and
-    and you are expected to be available at the facility on the appointment date as selected by you.<br><br>
+    you are expected to be available at the facility on the appointment date as selected by you.<br><br>
     Also, note that you will be required to:<br><br>
     -Present at the facility with your Avon member ID number ({enrollee_id})/ Ecard.<br>
     -Provide the facility with your valid email address to mail your result.<br>
@@ -805,7 +797,7 @@ def send_confirmation_email(enrollee_id, member_name, email, provider, benefits,
     <b>Kindly note that your wellness result will only be available two (2) weeks after your visit to the provider for your wellness check.</b><br><br>
     Should you require assistance at any time or wish to make any complaint about the service at any of the facilities,
     please contact our Call-Center at 0700-277-9800  or send us a chat on WhatsApp at 0912-603-9532.
-    You can also send us an email at callcentre@avonhealthcare.com. Please be assured that an agent would always be on standby to assist you.<br><br>
+    You can also send us an email at callcentre@avonhealthcare.com.<br><br>
     Thank you for choosing Avon HMO,<br><br>
     Medical Services.<br>
     '''
@@ -818,13 +810,13 @@ def send_confirmation_email(enrollee_id, member_name, email, provider, benefits,
     Kindly note the following regarding your wellness appointment:<br><br>
     - HR will reach out to you with a scheduled date and time for your annual wellness.<br><br>
     - Once scheduled, you are to present your Avon HMO ID card or member ID - {enrollee_id} at the point of accessing your annual wellness check.<br><br>
-    - The wellness exercise will take place at the designated floor which will be communicated to you by the HR between 9 am and 4 pm from Monday – Friday.<br><br>
+    - The wellness exercise will take place at the designated floor which will be communicated to you by the HR between 9 am and 4 pm from Monday - Friday.<br><br>
     - For the most accurate fasting blood sugar test results, it is advisable for blood tests to be done before 10am.<br><br>
     - Staff results will be sent to the email addresses provided by them to the wellness providers.<br><br>
     - There will be consultation with a physician to review immediate test results on-site while other test results that are not readily available will be reviewed by a physician at your Primary Care Provider.<br><br>
     Should you require assistance at any time or wish to make any complaint about the service rendered during this wellness exercise,
     please contact our Call-Center at 0700-277-9800 or send us a chat on WhatsApp at 0912-603-9532.
-    You can also send us an email at callcentre@avonhealthcare.com. Please be assured that an agent would always be on standby to assist you.<br><br>
+    You can also send us an email at callcentre@avonhealthcare.com.<br><br>
     Thank you for choosing Avon HMO.<br><br>
     Medical Services.<br>
     '''
@@ -840,7 +832,7 @@ def send_confirmation_email(enrollee_id, member_name, email, provider, benefits,
     <b>Kindly note that your wellness result will only be available two (2) weeks after your visit to the provider for your wellness check.</b><br><br>
     Should you require assistance at any time or wish to make any complaint about the service at any of the facilities,
     please contact our Call-Center at 0700-277-9800  or send us a chat on WhatsApp at 0912-603-9532.
-    You can also send us an email at callcentre@avonhealthcare.com. Please be assured that an agent would always be on standby to assist you.<br><br>
+    You can also send us an email at callcentre@avonhealthcare.com.<br><br>
     Thank you for choosing Avon HMO,<br><br>
     Medical Services.<br>
     '''
@@ -863,7 +855,7 @@ def send_confirmation_email(enrollee_id, member_name, email, provider, benefits,
     bcc_email_list = ['ifeoluwa.adeniyi@avonhealthcare.com', 'ifeoluwa.adeniyi@avonhealthcare.com']
 
     if provider in ['ECHOLAB - Opposite mararaba medical centre, Tipper Garage, Mararaba',
-                    'TOBIS CLINIC - Chief Melford Okilo Road Opposite Sobaz Filling Station, Akenfa –Epie',
+                    'TOBIS CLINIC - Chief Melford Okilo Road Opposite Sobaz Filling Station, Akenfa-Epie',
                     'ECHOLAB - 375B Nnebisi Road, Umuagu, Asaba']:
         bcc_email_list.extend(['ifeoluwa.adeniyi@avonhealthcare.com', 'ifeoluwa.adeniyi@avonhealthcare.com'])
 
@@ -888,115 +880,120 @@ def send_confirmation_email(enrollee_id, member_name, email, provider, benefits,
 
 
 # =============================================================================
-# APP
+# PROVIDER SUBMISSION — LAYOUTS
 # =============================================================================
-app = dash.Dash(
-    __name__,
-    external_stylesheets=[
-        dbc.themes.BOOTSTRAP,
-        "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap",
-        "https://cdn.jsdelivr.net/npm/lucide-static@0.344.0/font/lucide.min.css"
-    ],
-    suppress_callback_exceptions=True
-)
-app.title = "AVON HMO Wellness Portal"
-server = app.server
+def _nav_card(body_children):
+    return dbc.Card([dbc.CardHeader("Navigation"), dbc.CardBody(body_children)], className="mb-3")
+
+
+ps_login_layout = dbc.Container([
+    html.Div(
+        html.A("← Back to Wellness Portal", href="/wellness",
+               style={"color": "#59058d", "fontWeight": "600", "textDecoration": "none", "fontSize": "14px"}),
+        style={"padding": "16px 24px"}
+    ),
+    dbc.Row([
+        dbc.Col([
+            html.Br(), html.Br(), html.Br(),
+            dbc.Card([
+                dbc.CardBody([
+                    html.H2("Provider Wellness Result Submission Portal", className="text-center mb-4"),
+                    html.P("Login with your username and password to access the portal.", className="text-center text-muted"),
+                    html.Br(),
+                    dbc.Label("Username"),
+                    dbc.Input(id="login-username", type="text", placeholder="Enter username"),
+                    html.Br(),
+                    dbc.Label("Password"),
+                    dbc.Input(id="login-password", type="password", placeholder="Enter password"),
+                    html.Br(),
+                    dbc.Button("Login", id="login-button", color="primary", className="w-100",
+                               style={"backgroundColor": "#59058d", "borderColor": "#59058d"}),
+                    html.Br(),
+                    html.Div(id="login-error", className="text-danger text-center")
+                ])
+            ], className="shadow-lg")
+        ], width={"size": 6, "offset": 3})
+    ])
+], fluid=True, style={"backgroundColor": "#f8f9fa", "minHeight": "100vh"})
+
+ps_provider_layout = dbc.Container([
+    dbc.Row([dbc.Col([
+        html.H2("Provider Wellness Result Submission Portal", className="mt-3"),
+        html.P(id="provider-welcome", className="text-muted"),
+    ])]),
+    dbc.Row([
+        dbc.Col([_nav_card([
+            html.P("Welcome to the Provider Wellness Result Submission Portal"),
+            dbc.RadioItems(
+                id="provider-nav-option",
+                options=[
+                    {"label": "View Wellness Enrollees and Benefits", "value": "view"},
+                    {"label": "Submit Wellness Results",              "value": "submit"}
+                ],
+                value="view", inline=True
+            ),
+            html.Hr(),
+            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
+        ])], width=3),
+        dbc.Col([html.Div(id="provider-content")], width=9)
+    ])
+], fluid=True)
+
+ps_claims_layout = dbc.Container([
+    dbc.Row([dbc.Col([
+        html.H2("Provider Wellness Result Review Portal", className="mt-3 text-center", style={"color": "purple"}),
+        html.P(id="claims-welcome", className="text-center text-muted"),
+    ])]),
+    dbc.Row([
+        dbc.Col([_nav_card([
+            html.P("Welcome to the Provider Wellness Result Review Portal"),
+            html.P("Please select a Provider to view Submitted Wellness Results"),
+            dbc.Label("Select Provider", style={"color": "purple"}),
+            dcc.Dropdown(id="claims-provider-select", placeholder="Select Provider"),
+            html.Br(),
+            dbc.Label("Select Member", style={"color": "purple"}),
+            dcc.Dropdown(id="claims-member-select", placeholder="Select Member"),
+            html.Hr(),
+            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
+        ])], width=3),
+        dbc.Col([html.Div(id="claims-content")], width=9)
+    ])
+], fluid=True)
+
+ps_contact_layout = dbc.Container([
+    dbc.Row([dbc.Col([
+        html.H2("Wellness PA Code Authorisation and Results Review Portal", className="mt-3", style={"color": "purple"}),
+        html.P(id="contact-welcome", className="text-muted"),
+    ])]),
+    dbc.Row([
+        dbc.Col([_nav_card([
+            html.P("Welcome to the Wellness PA Code Authorisation and Results Review Portal"),
+            html.P("Kindly input Member ID to check Eligibility and Booking Status:", style={"color": "purple"}),
+            dbc.Input(id="contact-enrollee-id", type="text", placeholder="Enter Member ID here"),
+            html.Br(),
+            dbc.Button("Search", id="contact-search-button", color="primary"),
+            html.Hr(),
+            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
+        ])], width=3),
+        dbc.Col([dcc.Loading(type="default", children=html.Div(id="contact-content"))], width=9)
+    ])
+], fluid=True)
+
+ps_services_layout = dbc.Container([
+    dbc.Row([dbc.Col([
+        html.H2("Wellness Services Management Portal", className="mt-3", style={"color": "purple"}),
+        html.P(id="services-welcome", className="text-muted"),
+    ])]),
+    dbc.Row([
+        dbc.Col([html.Div(id="services-sidebar")], width=3),
+        dbc.Col([dcc.Loading(type="default", children=html.Div(id="services-content"))], width=9)
+    ])
+], fluid=True)
+
+
 
 # =============================================================================
-# CUSTOM CSS
-# =============================================================================
-CUSTOM_CSS = """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
-
-    :root {
-        --primary-color: #6B46C1;
-        --secondary-color: #38B2AC;
-        --primary-rgb: 107, 70, 193;
-    }
-    body { font-family: 'Inter', sans-serif; }
-    h1,h2,h3,h4,h5,h6 { font-family: 'Playfair Display', serif; }
-
-    .gradient-bg { background: linear-gradient(135deg, #faf5ff 0%, #ffffff 50%, #f0fdf4 100%); }
-    .purple-skew { background: rgba(107,70,193,0.05); transform: skewY(-3deg); position: absolute; top:0; left:0; right:0; height:250px; }
-    .green-blob  { position:absolute; bottom:0; right:0; width:400px; height:400px; background:rgba(56,178,172,0.05); border-radius:50%; filter:blur(60px); pointer-events:none; }
-    .logo-container { width:64px; height:64px; background:linear-gradient(135deg,#6B46C1,#805AD5); border-radius:16px; display:flex; align-items:center; justify-content:center; transform:rotate(3deg); box-shadow:0 10px 25px rgba(107,70,193,0.25); margin:0 auto; }
-    .card-glass { background:rgba(255,255,255,0.9); backdrop-filter:blur(10px); border:1px solid rgba(107,70,193,0.1); box-shadow:0 25px 50px -12px rgba(107,70,193,0.08); }
-    .form-input  { height:48px; border:2px solid #E9D8FD; border-radius:12px; transition:all 0.2s; }
-    .form-input:focus { border-color:#6B46C1; box-shadow:0 0 0 3px rgba(107,70,193,0.1); }
-    .btn-primary-custom { background:linear-gradient(135deg,#6B46C1,#805AD5); border:none; height:48px; font-weight:600; border-radius:12px; box-shadow:0 10px 25px rgba(107,70,193,0.25); transition:all 0.2s; }
-    .btn-primary-custom:hover { transform:translateY(-2px); box-shadow:0 15px 30px rgba(107,70,193,0.3); }
-    .header-purple { background:linear-gradient(135deg,#6B46C1,#805AD5); }
-    .border-left-accent { border-left:4px solid #38B2AC; }
-    .status-card { border-top:8px solid #48BB78; }
-    .validity-banner { background:#FFFBEB; border:1px solid #FCD34D; border-radius:8px; }
-    .wellness-card { background:rgba(255,255,255,0.9); backdrop-filter:blur(10px); border:1px solid rgba(107,70,193,0.1); box-shadow:0 25px 50px -12px rgba(107,70,193,0.08); border-radius:24px; }
-    .questionnaire-section { background:rgba(255,255,255,0.7); border-radius:16px; padding:20px; margin-bottom:15px; border:1px solid rgba(107,70,193,0.08); }
-    .questionnaire-section h5 { color:#44337A; margin-bottom:15px; }
-    .question-label { font-weight:500; color:#4A5568; margin-bottom:8px; }
-    .section-divider { border-top:2px solid #E9D8FD; margin:25px 0; }
-    .booking-header { background:linear-gradient(135deg,#6B46C1,#805AD5); padding:30px 0; margin-bottom:30px; }
-    .detail-label { color:#718096; font-size:0.875rem; }
-    .detail-value { font-weight:600; color:#2D3748; }
-    .already-booked-card { background:rgba(255,255,255,0.95); border-radius:16px; border-left:4px solid #3182CE; box-shadow:0 10px 25px rgba(0,0,0,0.1); }
-    .consent-banner { background:linear-gradient(135deg,#FEFCBF,#F6E05E); border:1px solid #D69E2E; border-radius:12px; }
-    .custom-select .Select-control { height:48px; border:2px solid #E9D8FD; border-radius:12px; }
-    .custom-radio .custom-control-inline { margin-right:20px; }
-    .date-picker-custom .DateInput { height:48px; border:2px solid #E9D8FD; border-radius:12px; }
-
-    /* Provider Submission Button */
-    .provider-portal-btn {
-        position: fixed;
-        top: 18px;
-        right: 24px;
-        z-index: 9999;
-        background: linear-gradient(135deg, #59058d, #800cbf);
-        color: white !important;
-        border: none;
-        border-radius: 10px;
-        padding: 8px 18px;
-        font-weight: 600;
-        font-size: 14px;
-        box-shadow: 0 4px 14px rgba(89,5,141,0.35);
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        transition: all 0.2s;
-    }
-    .provider-portal-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(89,5,141,0.45);
-        color: white !important;
-    }
-</style>
-"""
-
-app.index_string = f'''
-<!DOCTYPE html>
-<html>
-    <head>
-        {{%metas%}}
-        <title>{app.title}</title>
-        {{%favicon%}}
-        {{%css%}}
-    </head>
-    <body>
-        {{%app_entry%}}
-        <footer>
-            {{%config%}}
-            {{%scripts%}}
-            {{%renderer%}}
-        </footer>
-        {CUSTOM_CSS}
-    </body>
-</html>
-'''
-
-
-# =============================================================================
-# WELLNESS DASHBOARD — LOADING SCREEN
+# WELLNESS PORTAL — LOADING SCREEN
 # =============================================================================
 def wellness_loading_screen():
     return html.Div([
@@ -1019,14 +1016,13 @@ def wellness_loading_screen():
 
 
 # =============================================================================
-# WELLNESS DASHBOARD — PORTAL LAYOUT
+# WELLNESS PORTAL — MAIN PORTAL LAYOUT
 # =============================================================================
 def wellness_portal_layout():
     return html.Div([
-        # ── Provider Portal button (top-right, fixed) ──────────────────────
         html.A(
             [html.Span("⚕", style={"fontSize": "16px"}), " Provider Portal"],
-            href="/provider",
+            href="/wellness/provider",
             className="provider-portal-btn",
             id="go-to-provider-btn"
         ),
@@ -1052,6 +1048,11 @@ def wellness_portal_layout():
                             style={"color": "#44337A", "fontSize": "2rem"}),
                     html.P("AVON HMO Enrollee Annual Wellness Portal. Check your eligibility and book your annual wellness checkup.",
                            className="text-lg mb-4", style={"color": "#718096"}),
+                    # Back to home link
+                    html.Div([
+                        dcc.Link("← Back to Home", href="/",
+                                 style={"color": "#6B46C1", "fontWeight": "600", "textDecoration": "none", "fontSize": "14px"})
+                    ], className="mb-3")
                 ], className="text-center mb-5"),
 
                 dbc.Card([
@@ -1092,178 +1093,34 @@ def wellness_portal_layout():
 
 
 # =============================================================================
-# PROVIDER SUBMISSION — LAYOUTS
+# PAGE LAYOUT  — multi-page entry point
 # =============================================================================
-def ps_loading_screen(title_text):
-    return dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                html.Br(), html.Br(),
-                html.H4(title_text, className="text-center", style={"color": "purple"}),
-                html.Br(),
-                dbc.Spinner(size="lg", color="primary",
-                            children=html.Div(style={"height": "60px"})),
-                html.P("Loading portal data, please wait…",
-                       className="text-center text-muted mt-3"),
-            ], width={"size": 4, "offset": 4})
-        ])
-    ], fluid=True, style={"minHeight": "60vh", "paddingTop": "15vh"})
-
-
-def _nav_card(body_children):
-    return dbc.Card([dbc.CardHeader("Navigation"), dbc.CardBody(body_children)], className="mb-3")
-
-
-ps_login_layout = dbc.Container([
-    # Back to Wellness Portal link
-    html.Div(
-        html.A("← Back to Wellness Portal", href="/",
-               style={"color": "#59058d", "fontWeight": "600", "textDecoration": "none",
-                      "fontSize": "14px"}),
-        style={"padding": "16px 24px"}
-    ),
-    dbc.Row([
-        dbc.Col([
-            html.Br(), html.Br(), html.Br(),
-            dbc.Card([
-                dbc.CardBody([
-                    html.H2("Provider Wellness Result Submission Portal", className="text-center mb-4"),
-                    html.P("Login with your username and password to access the portal.",
-                           className="text-center text-muted"),
-                    html.Br(),
-                    dbc.Label("Username"),
-                    dbc.Input(id="login-username", type="text", placeholder="Enter username"),
-                    html.Br(),
-                    dbc.Label("Password"),
-                    dbc.Input(id="login-password", type="password", placeholder="Enter password"),
-                    html.Br(),
-                    dbc.Button("Login", id="login-button", color="primary", className="w-100",
-                               style={"backgroundColor": "#59058d", "borderColor": "#59058d"}),
-                    html.Br(),
-                    html.Div(id="login-error", className="text-danger text-center")
-                ])
-            ], className="shadow-lg")
-        ], width={"size": 6, "offset": 3})
-    ])
-], fluid=True, style={"backgroundColor": "#f8f9fa", "minHeight": "100vh"})
-
-
-ps_provider_layout = dbc.Container([
-    dbc.Row([dbc.Col([
-        html.H2("Provider Wellness Result Submission Portal", className="mt-3"),
-        html.P(id="provider-welcome", className="text-muted"),
-    ])]),
-    dbc.Row([
-        dbc.Col([_nav_card([
-            html.P("Welcome to the Provider Wellness Result Submission Portal"),
-            dbc.RadioItems(
-                id="provider-nav-option",
-                options=[
-                    {"label": "View Wellness Enrollees and Benefits", "value": "view"},
-                    {"label": "Submit Wellness Results",              "value": "submit"}
-                ],
-                value="view", inline=True
-            ),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
-        ])], width=3),
-        dbc.Col([html.Div(id="provider-content")], width=9)
-    ])
-], fluid=True)
-
-ps_claims_layout = dbc.Container([
-    dbc.Row([dbc.Col([
-        html.H2("Provider Wellness Result Review Portal",
-                className="mt-3 text-center", style={"color": "purple"}),
-        html.P(id="claims-welcome", className="text-center text-muted"),
-    ])]),
-    dbc.Row([
-        dbc.Col([_nav_card([
-            html.P("Welcome to the Provider Wellness Result Review Portal"),
-            html.P("Please select a Provider to view Submitted Wellness Results"),
-            dbc.Label("Select Provider", style={"color": "purple"}),
-            dcc.Dropdown(id="claims-provider-select", placeholder="Select Provider"),
-            html.Br(),
-            dbc.Label("Select Member", style={"color": "purple"}),
-            dcc.Dropdown(id="claims-member-select", placeholder="Select Member"),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
-        ])], width=3),
-        dbc.Col([html.Div(id="claims-content")], width=9)
-    ])
-], fluid=True)
-
-ps_contact_layout = dbc.Container([
-    dbc.Row([dbc.Col([
-        html.H2("Wellness PA Code Authorisation and Results Review Portal",
-                className="mt-3", style={"color": "purple"}),
-        html.P(id="contact-welcome", className="text-muted"),
-    ])]),
-    dbc.Row([
-        dbc.Col([_nav_card([
-            html.P("Welcome to the Wellness PA Code Authorisation and Results Review Portal"),
-            html.P("Kindly input Member ID to check Eligibility and Booking Status:",
-                   style={"color": "purple"}),
-            dbc.Input(id="contact-enrollee-id", type="text", placeholder="Enter Member ID here"),
-            html.Br(),
-            dbc.Button("Search", id="contact-search-button", color="primary"),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
-        ])], width=3),
-        dbc.Col([
-            dcc.Loading(type="default", children=html.Div(id="contact-content"))
-        ], width=9)
-    ])
-], fluid=True)
-
-ps_services_layout = dbc.Container([
-    dbc.Row([dbc.Col([
-        html.H2("Wellness Services Management Portal",
-                className="mt-3", style={"color": "purple"}),
-        html.P(id="services-welcome", className="text-muted"),
-    ])]),
-    dbc.Row([
-        dbc.Col([html.Div(id="services-sidebar")], width=3),
-        dbc.Col([
-            dcc.Loading(type="default", children=html.Div(id="services-content"))
-        ], width=9)
-    ])
-], fluid=True)
-
-
-# =============================================================================
-# APP LAYOUT  — multi-page via dcc.Location
-# =============================================================================
-app.layout = html.Div([
-    dcc.Location(id='url', refresh=False),
-
-    # ── Wellness Dashboard stores ────────────────────────────────────────────
+layout = html.Div([
+    # Stores
     dcc.Store(id='data-ready-store-wellness', data=False),
     dcc.Interval(id='data-check-interval', interval=500, n_intervals=0),
-    dcc.Store(id='user-data-store',       data=initial_user_data),
-    dcc.Store(id='enrollee-data-store',   data={}),
-    dcc.Store(id='submission-trigger',    data=0),
+    dcc.Store(id='user-data-store',         data=initial_user_data),
+    dcc.Store(id='enrollee-data-store',     data={}),
+    dcc.Store(id='submission-trigger',      data=0),
     dcc.Store(id='questionnaire-responses', data={}),
-    dcc.Store(id='session-store',         data=''),
-
-    # ── Provider Submission stores ───────────────────────────────────────────
-    dcc.Store(id="auth-store", storage_type="session",
+    dcc.Store(id='session-store',           data=''),
+    dcc.Store(id="auth-store",              storage_type="session",
               data={"authenticated": False, "username": None, "providername": None}),
-    dcc.Store(id="data-ready-store-ps", data=False),
+    dcc.Store(id="data-ready-store-ps",     data=False),
     dcc.Store(id="store-q2",  data=None),
     dcc.Store(id="store-q3",  data=None),
     dcc.Store(id="store-q4",  data=None),
     dcc.Store(id="store-q5",  data=None),
-    dcc.Store(id="services-view-store",            data="providers"),
-    dcc.Store(id="services-state-filter",          data=None),
-    dcc.Store(id="services-provider-name-filter",  data=None),
-    dcc.Store(id="services-plan-type-filter",      data=None),
-    dcc.Store(id="services-client-name-filter",    data=None),
+    dcc.Store(id="services-view-store",           data="providers"),
+    dcc.Store(id="services-state-filter",         data=None),
+    dcc.Store(id="services-provider-name-filter", data=None),
+    dcc.Store(id="services-plan-type-filter",     data=None),
+    dcc.Store(id="services-client-name-filter",   data=None),
 
-    # ── Page content ─────────────────────────────────────────────────────────
-    html.Div(id='page-content'),
+    # Sub-page content
+    html.Div(id='wellness-page-content'),
 
-    # ── Wellness modal (lives outside page-content so it persists) ───────────
+    # Success modal
     dbc.Modal([
         dbc.ModalHeader("Submission Successful",
                         style={"fontFamily": "Playfair Display, serif", "color": "#44337A"}),
@@ -1275,33 +1132,29 @@ app.layout = html.Div([
 
 
 # =============================================================================
-# PAGE ROUTING CALLBACK
+# WELLNESS PAGE CONTENT  (loading screen then portal once data is ready)
 # =============================================================================
-@app.callback(
-    [Output('page-content', 'children'),
-     Output('data-check-interval', 'disabled')],
-    Input('url', 'pathname'),
+@callback(
+    Output('wellness-page-content', 'children'),
+    Output('data-check-interval',   'disabled'),
     Input('data-ready-store-wellness', 'data'),
 )
-def route_page(pathname, wellness_ready):
-    if pathname and pathname.startswith('/provider'):
-        return html.Div(id='ps-main-content'), True
-    else:
-        if not wellness_ready:
-            return wellness_loading_screen(), False
-        return dcc.Loading(
-            id="loading",
-            type="circle",
-            fullscreen=False,
-            color="#6B46C1",
-            children=wellness_portal_layout()
-        ), True
+def route_wellness_page(wellness_ready):
+    if not wellness_ready:
+        return wellness_loading_screen(), False
+    return dcc.Loading(
+        id="loading",
+        type="circle",
+        fullscreen=False,
+        color="#6B46C1",
+        children=wellness_portal_layout()
+    ), True
 
 
 # =============================================================================
-# WELLNESS DASHBOARD — DATA READINESS CHECK
+# DATA READINESS CHECK
 # =============================================================================
-@app.callback(
+@callback(
     Output('data-ready-store-wellness', 'data'),
     Input('data-check-interval', 'n_intervals'),
     prevent_initial_call=False
@@ -1313,19 +1166,19 @@ def check_wellness_data_loaded(n):
 
 
 # =============================================================================
-# WELLNESS DASHBOARD — ELIGIBILITY CHECK
+# ELIGIBILITY CHECK
 # =============================================================================
-@app.callback(
-    [Output('eligibility-message',      'children'),
-     Output('already-booked-section',   'children'),
-     Output('enrollment-form-section',  'children'),
-     Output('enrollee-data-store',      'data'),
-     Output('enrollee-id-input',        'value')],
-    [Input('url',                       'search'),
-     Input('member-id-submit-btn',      'n_clicks'),
-     Input('enrollee-id-input',         'n_submit')],
-    [State('enrollee-id-input',         'value'),
-     State('enrollee-data-store',       'data')]
+@callback(
+    Output('eligibility-message',      'children'),
+    Output('already-booked-section',   'children'),
+    Output('enrollment-form-section',  'children'),
+    Output('enrollee-data-store',      'data'),
+    Output('enrollee-id-input',        'value'),
+    Input('_pages_location',           'search'),
+    Input('member-id-submit-btn',      'n_clicks'),
+    Input('enrollee-id-input',         'n_submit'),
+    State('enrollee-id-input',         'value'),
+    State('enrollee-data-store',       'data'),
 )
 def check_eligibility(url_search, n_clicks, n_submit, enrollee_id, stored_data):
     global wellness_df
@@ -1335,8 +1188,8 @@ def check_eligibility(url_search, n_clicks, n_submit, enrollee_id, stored_data):
     ctx = callback_context
     triggered_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 
-    if triggered_id == 'url' or not enrollee_id:
-        parsed    = urllib.parse.parse_qs(urllib.parse.urlparse(url_search).query)
+    if triggered_id == '_pages_location' or not enrollee_id:
+        parsed     = urllib.parse.parse_qs(urllib.parse.urlparse(url_search or '').query)
         url_member = parsed.get('member', [None])[0]
         if url_member:
             enrollee_id = url_member
@@ -1355,13 +1208,13 @@ def check_eligibility(url_search, n_clicks, n_submit, enrollee_id, stored_data):
         policyend   = wellness_df.loc[wellness_df['memberno'] == enrollee_id, 'PolicyEndDate'].values[0]
 
         if policystart <= final_submit_date <= policyend:
-            clientname  = row['Client']
-            package     = row['Wellness_benefits']
-            member_email= row['email']
-            provider    = row['selected_provider']
-            app_date    = row['selected_date']
-            app_session = row['selected_session']
-            six_weeks   = (dt.datetime.strptime(submitted_date, "%Y-%m-%d").date() + dt.timedelta(weeks=6)).strftime('%A, %d %B %Y')
+            clientname   = row['Client']
+            package      = row['Wellness_benefits']
+            member_email = row['email']
+            provider     = row['selected_provider']
+            app_date     = row['selected_date']
+            app_session  = row['selected_session']
+            six_weeks    = (dt.datetime.strptime(submitted_date, "%Y-%m-%d").date() + dt.timedelta(weeks=6)).strftime('%A, %d %B %Y')
 
             msg = dbc.Alert([
                 html.H5(f"Dear {member_name}."),
@@ -1403,8 +1256,8 @@ def check_eligibility(url_search, n_clicks, n_submit, enrollee_id, stored_data):
             html.P([
                 html.B("Kindly confirm that your enrollment details match the info displayed below."),
                 html.Br(), html.Br(),
-                "Also note that by proceeding to fill this form, you consent to the collection and processing of your data for the purpose of this wellness screening exercise.",
-                "You understand that your results may be shared with the HMO for claims management and care coordination, ",
+                "Also note that by proceeding to fill this form, you consent to the collection and processing of your data for the purpose of this wellness screening exercise. "
+                "You understand that your results may be shared with the HMO for claims management and care coordination, "
                 "and that your data will be handled in accordance with Avon HMO's Privacy Policy."
             ]),
             html.Hr(),
@@ -1426,26 +1279,26 @@ def check_eligibility(url_search, n_clicks, n_submit, enrollee_id, stored_data):
 
 
 # =============================================================================
-# WELLNESS DASHBOARD — QUESTIONNAIRE RESPONSES
+# QUESTIONNAIRE RESPONSES
 # =============================================================================
-@app.callback(
+@callback(
     Output('questionnaire-responses', 'data'),
-    [Input('radio-resp_1_a', 'value'), Input('radio-resp_1_b', 'value'), Input('radio-resp_1_c', 'value'),
-     Input('radio-resp_1_d', 'value'), Input('radio-resp_1_e', 'value'), Input('radio-resp_1_f', 'value'),
-     Input('radio-resp_1_g', 'value'), Input('radio-resp_1_h', 'value'), Input('radio-resp_1_i', 'value'),
-     Input('radio-resp_1_j', 'value'), Input('radio-resp_1_k', 'value'),
-     Input('radio-resp_2_a', 'value'), Input('radio-resp_2_b', 'value'), Input('radio-resp_2_c', 'value'),
-     Input('radio-resp_2_d', 'value'), Input('radio-resp_2_e', 'value'), Input('radio-resp_2_f', 'value'),
-     Input('radio-resp_2_g', 'value'), Input('radio-resp_2_h', 'value'), Input('radio-resp_2_i', 'value'),
-     Input('radio-resp_3_a', 'value'), Input('radio-resp_3_b', 'value'), Input('radio-resp_3_c', 'value'),
-     Input('radio-resp_3_d', 'value'), Input('radio-resp_3_e', 'value'), Input('radio-resp_3_f', 'value'),
-     Input('radio-resp_4_a', 'value'), Input('radio-resp_4_b', 'value'), Input('radio-resp_4_c', 'value'),
-     Input('radio-resp_4_d', 'value'), Input('radio-resp_4_e', 'value'), Input('radio-resp_4_f', 'value'),
-     Input('radio-resp_4_g', 'value'), Input('radio-resp_4_h', 'value'), Input('radio-resp_4_i', 'value'),
-     Input('radio-resp_4_j', 'value'), Input('radio-resp_4_k', 'value'), Input('radio-resp_4_l', 'value'),
-     Input('radio-resp_4_m', 'value'), Input('radio-resp_4_n', 'value'), Input('radio-resp_4_o', 'value'),
-     Input('radio-resp_4_p', 'value'), Input('radio-resp_4_q', 'value'), Input('radio-resp_4_r', 'value'),
-     Input('radio-resp_4_s', 'value'), Input('radio-resp_4_t', 'value')]
+    Input('radio-resp_1_a', 'value'), Input('radio-resp_1_b', 'value'), Input('radio-resp_1_c', 'value'),
+    Input('radio-resp_1_d', 'value'), Input('radio-resp_1_e', 'value'), Input('radio-resp_1_f', 'value'),
+    Input('radio-resp_1_g', 'value'), Input('radio-resp_1_h', 'value'), Input('radio-resp_1_i', 'value'),
+    Input('radio-resp_1_j', 'value'), Input('radio-resp_1_k', 'value'),
+    Input('radio-resp_2_a', 'value'), Input('radio-resp_2_b', 'value'), Input('radio-resp_2_c', 'value'),
+    Input('radio-resp_2_d', 'value'), Input('radio-resp_2_e', 'value'), Input('radio-resp_2_f', 'value'),
+    Input('radio-resp_2_g', 'value'), Input('radio-resp_2_h', 'value'), Input('radio-resp_2_i', 'value'),
+    Input('radio-resp_3_a', 'value'), Input('radio-resp_3_b', 'value'), Input('radio-resp_3_c', 'value'),
+    Input('radio-resp_3_d', 'value'), Input('radio-resp_3_e', 'value'), Input('radio-resp_3_f', 'value'),
+    Input('radio-resp_4_a', 'value'), Input('radio-resp_4_b', 'value'), Input('radio-resp_4_c', 'value'),
+    Input('radio-resp_4_d', 'value'), Input('radio-resp_4_e', 'value'), Input('radio-resp_4_f', 'value'),
+    Input('radio-resp_4_g', 'value'), Input('radio-resp_4_h', 'value'), Input('radio-resp_4_i', 'value'),
+    Input('radio-resp_4_j', 'value'), Input('radio-resp_4_k', 'value'), Input('radio-resp_4_l', 'value'),
+    Input('radio-resp_4_m', 'value'), Input('radio-resp_4_n', 'value'), Input('radio-resp_4_o', 'value'),
+    Input('radio-resp_4_p', 'value'), Input('radio-resp_4_q', 'value'), Input('radio-resp_4_r', 'value'),
+    Input('radio-resp_4_s', 'value'), Input('radio-resp_4_t', 'value'),
 )
 def update_questionnaire_responses(
         r1a, r1b, r1c, r1d, r1e, r1f, r1g, r1h, r1i, r1j, r1k,
@@ -1467,51 +1320,46 @@ def update_questionnaire_responses(
 
 
 # =============================================================================
-# WELLNESS DASHBOARD — PROVIDER OPTIONS UPDATE
+# PROVIDER OPTIONS
 # =============================================================================
-@app.callback(
+@callback(
     Output('provider-select', 'options'),
-    [Input('state-select', 'value')],
-    [State('enrollee-id-input', 'value')]
+    Input('state-select', 'value'),
+    State('enrollee-id-input', 'value'),
 )
 def update_providers(state, enrollee_id):
     if not enrollee_id or not state:
         return []
-
     global wellness_df
     if wellness_df is None:
         load_wellness_df()
-
     enrollee_id = str(enrollee_id).strip()
     if enrollee_id not in wellness_df['memberno'].values:
         return []
-
     client    = wellness_df.loc[wellness_df['memberno'] == enrollee_id, 'Client'].values[0]
     providers = get_providers_for_client_state(client, state, enrollee_id)
     return [{'label': p, 'value': p} for p in providers]
 
 
 # =============================================================================
-# WELLNESS DASHBOARD — SESSION UPDATE
+# SESSION UPDATE
 # =============================================================================
-@app.callback(
-    [Output('session-radio-container', 'children'),
-     Output('date-picker-row',         'style'),
-     Output('session-store',           'data')],
-    [Input('state-select',    'value'),
-     Input('provider-select', 'value'),
-     Input('date-picker',     'date')],
-    [State('enrollee-id-input', 'value'),
-     State('session-store',     'data')]
+@callback(
+    Output('session-radio-container', 'children'),
+    Output('date-picker-row',         'style'),
+    Output('session-store',           'data'),
+    Input('state-select',    'value'),
+    Input('provider-select', 'value'),
+    Input('date-picker',     'date'),
+    State('enrollee-id-input', 'value'),
+    State('session-store',     'data'),
 )
 def update_sessions(state, provider, selected_date, enrollee_id, current_session):
     if not enrollee_id:
         return html.Div(), {'display': 'none'}, ''
-
     global wellness_df
     if wellness_df is None:
         load_wellness_df()
-
     enrollee_id = str(enrollee_id).strip()
     if enrollee_id not in wellness_df['memberno'].values:
         return html.Div(), {'display': 'none'}, ''
@@ -1524,7 +1372,7 @@ def update_sessions(state, provider, selected_date, enrollee_id, current_session
     if (state in ('LAGOS', 'UBA HQ')) and provider:
         if 'UBA Head Office' in provider:
             return dbc.Alert(
-                "The date for your Wellness Exercise will be communicated to you by your HR. Kindly fill the questionaire below to complete your wellness booking",
+                "The date for your Wellness Exercise will be communicated to you by your HR. Kindly fill the questionnaire below to complete your wellness booking",
                 color="info"), {'display': 'none'}, ''
 
         if ('CERBA LANCET' in provider) or ('CERBA LANCET NIGERIA' in provider):
@@ -1570,7 +1418,7 @@ def update_sessions(state, provider, selected_date, enrollee_id, current_session
     return html.Div(), {'display': 'block'}, ''
 
 
-@app.callback(
+@callback(
     Output('session-store', 'data', allow_duplicate=True),
     Input('session-radio', 'value'),
     prevent_initial_call=True
@@ -1580,24 +1428,24 @@ def update_session_store(session_value):
 
 
 # =============================================================================
-# WELLNESS DASHBOARD — FORM SUBMISSION
+# FORM SUBMISSION
 # =============================================================================
-@app.callback(
-    [Output('success-modal',        'is_open'),
-     Output('submission-message',   'children')],
-    [Input('submit-form-btn',   'n_clicks'),
-     Input('close-modal',       'n_clicks')],
-    [State('enrollee-id-input',     'value'),
-     State('email-input',           'value'),
-     State('mobile-input',          'value'),
-     State('gender-radio',          'value'),
-     State('job-type-select',       'value'),
-     State('state-select',          'value'),
-     State('provider-select',       'value'),
-     State('date-picker',           'date'),
-     State('session-store',         'data'),
-     State('enrollee-data-store',   'data'),
-     State('questionnaire-responses', 'data')],
+@callback(
+    Output('success-modal',      'is_open'),
+    Output('submission-message', 'children'),
+    Input('submit-form-btn',  'n_clicks'),
+    Input('close-modal',      'n_clicks'),
+    State('enrollee-id-input',       'value'),
+    State('email-input',             'value'),
+    State('mobile-input',            'value'),
+    State('gender-radio',            'value'),
+    State('job-type-select',         'value'),
+    State('state-select',            'value'),
+    State('provider-select',         'value'),
+    State('date-picker',             'date'),
+    State('session-store',           'data'),
+    State('enrollee-data-store',     'data'),
+    State('questionnaire-responses', 'data'),
     prevent_initial_call=True
 )
 def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
@@ -1611,7 +1459,6 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
     ctx = callback_context
     if not ctx.triggered:
         return False, ""
-
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     if trigger_id == 'close-modal':
         return False, ""
@@ -1625,8 +1472,8 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
     if missing:
         return True, dbc.Alert(f"The following field(s) are required: {', '.join(missing)}", color="danger")
 
-    selected_date_str  = ''
-    date_communicated  = False
+    selected_date_str = ''
+    date_communicated = False
     if selected_date:
         selected_date_str = dt.datetime.strptime(selected_date, '%Y-%m-%d').strftime('%Y-%m-%d')
     if not session:
@@ -1758,24 +1605,20 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
             ], color="warning", className="mb-0")
 
     except Exception as e:
-        success_msg = dbc.Alert(f"An error occurred: {str(e)}", color="danger")
-        return True, success_msg
+        return True, dbc.Alert(f"An error occurred: {str(e)}", color="danger")
 
     return True, success_msg
 
 
 # =============================================================================
-# PROVIDER SUBMISSION — RENDER PS-MAIN-CONTENT based on auth
+# PROVIDER PORTAL — RENDER based on auth
 # =============================================================================
-@app.callback(
-    Output("ps-main-content", "children"),
-    Input("auth-store",  "data"),
-    Input("url",         "pathname"),
+@callback(
+    Output("ps-main-content",    "children"),
+    Input("auth-store",          "data"),
     prevent_initial_call=False,
 )
-def render_ps_layout(auth_data, pathname):
-    if not pathname or not pathname.startswith('/provider'):
-        return dash.no_update
+def render_ps_layout(auth_data):
     if not auth_data or not auth_data.get("authenticated", False):
         return ps_login_layout
 
@@ -1791,11 +1634,18 @@ def render_ps_layout(auth_data, pathname):
     else:
         return ps_login_layout
 
-    return ps_loading_screen(title)
+    return dbc.Container([
+        dbc.Row([dbc.Col([
+            html.Br(), html.Br(),
+            html.H4(title, className="text-center", style={"color": "purple"}),
+            html.Br(),
+            dbc.Spinner(size="lg", color="primary", children=html.Div(style={"height": "60px"})),
+            html.P("Loading portal data, please wait…", className="text-center text-muted mt-3"),
+        ], width={"size": 4, "offset": 4})])
+    ], fluid=True, style={"minHeight": "60vh", "paddingTop": "15vh"})
 
 
-# --- Step 1: Login ---
-@app.callback(
+@callback(
     Output("auth-store",   "data"),
     Output("login-error",  "children"),
     Input("login-button",  "n_clicks"),
@@ -1812,14 +1662,13 @@ def login(n_clicks, username_val, password_val):
     return dash.no_update, ""
 
 
-# --- Step 3: load portal data into stores ---
-@app.callback(
-    Output("store-q2",          "data"),
-    Output("store-q3",          "data"),
-    Output("store-q4",          "data"),
-    Output("store-q5",          "data"),
+@callback(
+    Output("store-q2",           "data"),
+    Output("store-q3",           "data"),
+    Output("store-q4",           "data"),
+    Output("store-q5",           "data"),
     Output("data-ready-store-ps","data"),
-    Input("auth-store",         "data"),
+    Input("auth-store",          "data"),
     prevent_initial_call=True,
 )
 def load_portal_data(auth_data):
@@ -1832,19 +1681,15 @@ def load_portal_data(auth_data):
     return q2, q3, q4, q5, True
 
 
-# --- Step 4: swap loading screen for real portal ---
-@app.callback(
-    Output("ps-main-content",      "children", allow_duplicate=True),
-    Output("services-view-store",  "data",     allow_duplicate=True),
-    Input("data-ready-store-ps",   "data"),
-    State("auth-store",            "data"),
-    State("url",                   "pathname"),
+@callback(
+    Output("ps-main-content",     "children", allow_duplicate=True),
+    Output("services-view-store", "data",     allow_duplicate=True),
+    Input("data-ready-store-ps",  "data"),
+    State("auth-store",           "data"),
     prevent_initial_call=True,
 )
-def show_ps_portal(ready, auth_data, pathname):
+def show_ps_portal(ready, auth_data):
     if not ready or not auth_data or not auth_data.get("authenticated"):
-        return dash.no_update, dash.no_update
-    if not pathname or not pathname.startswith('/provider'):
         return dash.no_update, dash.no_update
     u = auth_data.get("username", "")
     if u.startswith("234"):
@@ -1860,40 +1705,37 @@ def show_ps_portal(ready, auth_data, pathname):
     return ps_login_layout, dash.no_update
 
 
-# --- Logout ---
-@app.callback(
-    Output("auth-store", "data", allow_duplicate=True),
-    Output("url",        "href"),
+@callback(
+    Output("auth-store",    "data", allow_duplicate=True),
+    Output("logout-redirect","data", allow_duplicate=True),
     Input("logout-btn",  "n_clicks"),
     prevent_initial_call=True,
 )
 def logout(n_clicks):
     if n_clicks:
         invalidate_cache()
-        return {"authenticated": False, "username": None, "providername": None}, "/provider"
+        return {"authenticated": False, "username": None, "providername": None}, "/wellness/provider"
     return dash.no_update, dash.no_update
 
 
-# --- Welcome messages ---
-@app.callback(Output("provider-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("provider-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
 def update_provider_welcome(d):
     return f"Logged in as {d.get('providername','')} ({d.get('username','')})" if d and d.get("authenticated") else ""
 
-@app.callback(Output("claims-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("claims-welcome",  "children"), Input("auth-store", "data"), prevent_initial_call=True)
 def update_claims_welcome(d):
     return f"Logged in as {d.get('providername','')} ({d.get('username','')})" if d and d.get("authenticated") else ""
 
-@app.callback(Output("contact-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("contact-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
 def update_contact_welcome(d):
     return f"Logged in as {d.get('providername','')} ({d.get('username','')})" if d and d.get("authenticated") else ""
 
-@app.callback(Output("services-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("services-welcome","children"), Input("auth-store", "data"), prevent_initial_call=True)
 def update_services_welcome(d):
     return f"Logged in as {d.get('username','')}" if d and d.get("authenticated") else ""
 
 
-# --- Provider content ---
-@app.callback(
+@callback(
     Output("provider-content",   "children"),
     Input("provider-nav-option", "value"),
     State("store-q2",  "data"),
@@ -1904,11 +1746,9 @@ def update_services_welcome(d):
 def update_provider_content(option, q2_data, q4_data, auth_data):
     if not auth_data or not q2_data or not auth_data.get("username", "").startswith("234"):
         return ""
-
     filled_df = pd.DataFrame(q2_data)
     filled_df['ProviderName'] = filled_df['PA_Provider'].str.split('-').str[0].str.strip()
     filled_df['MemberNo']     = filled_df['MemberNo'].astype(str)
-
     result_df = pd.DataFrame(q4_data) if q4_data else pd.DataFrame(columns=['memberno'])
     if not result_df.empty:
         result_df['memberno'] = result_df['memberno'].astype(str)
@@ -1957,7 +1797,7 @@ def update_provider_content(option, q2_data, q4_data, auth_data):
         ])
 
 
-@app.callback(
+@callback(
     Output("submission-form", "children"),
     Input("member-select",    "value"),
     State("store-q2",         "data"),
@@ -1978,8 +1818,7 @@ def show_submission_form(member, q2_data):
         dbc.Input(id="pa-code-input", type="text", placeholder="Enter PACode"),
         html.Br(),
         html.P("Please Select the Tests Conducted on the Enrollee"),
-        dcc.Dropdown(id="tests-conducted", options=PA_TESTS_OPTIONS, multi=True,
-                     placeholder="Select all Tests Conducted"),
+        dcc.Dropdown(id="tests-conducted", options=PA_TESTS_OPTIONS, multi=True, placeholder="Select all Tests Conducted"),
         html.Br(),
         html.P("Please Enter the Date the Tests were Conducted"),
         dcc.DatePickerSingle(id="test-date-picker", placeholder="Enter Test Date"),
@@ -1998,7 +1837,7 @@ def show_submission_form(member, q2_data):
     ])
 
 
-@app.callback(
+@callback(
     Output("ps-submission-message", "children"),
     Input("submit-results-btn",     "n_clicks"),
     State("member-select",          "value"),
@@ -2048,12 +1887,12 @@ def submit_results(n_clicks, member, pa_code, tests_conducted, test_date,
                 VALUES (:memberno, :membername, :providername, :pacode, :tests_conducted, :test_date, :test_result_link, GETDATE())
             """),
             {
-                "memberno":       member_no,
-                "membername":     row['MemberName'],
-                "providername":   auth_data.get("providername", ""),
-                "pacode":         pa_code,
+                "memberno":        member_no,
+                "membername":      row['MemberName'],
+                "providername":    auth_data.get("providername", ""),
+                "pacode":          pa_code,
                 "tests_conducted": ', '.join(tests_conducted),
-                "test_date":      test_date,
+                "test_date":       test_date,
                 "test_result_link": f"https://{bsc.account_name}.blob.core.windows.net/{cont}/{folder}"
             }
         )
@@ -2072,8 +1911,7 @@ def submit_results(n_clicks, member, pa_code, tests_conducted, test_date,
            if ok else dbc.Alert(msg, color="danger")
 
 
-# --- Claims portal ---
-@app.callback(
+@callback(
     Output("claims-provider-select", "options"),
     Input("data-ready-store-ps",     "data"),
     State("store-q4",                "data"),
@@ -2086,7 +1924,7 @@ def load_claims_providers(ready, q4_data):
     return [{"label": p, "value": p} for p in df['providername'].unique()]
 
 
-@app.callback(
+@callback(
     Output("claims-member-select", "options"),
     Input("claims-provider-select","value"),
     State("store-q4",              "data"),
@@ -2101,11 +1939,11 @@ def load_claims_members(provider, q4_data):
     return [{"label": m, "value": m} for m in df[df['providername'] == provider]['member'].unique()]
 
 
-@app.callback(
-    Output("claims-content",       "children"),
-    Input("claims-member-select",  "value"),
+@callback(
+    Output("claims-content",      "children"),
+    Input("claims-member-select", "value"),
     State("claims-provider-select","value"),
-    State("store-q2",              "data"),
+    State("store-q2",             "data"),
     prevent_initial_call=True,
 )
 def show_claims_content(member, provider, q2_data):
@@ -2129,8 +1967,7 @@ def show_claims_content(member, provider, q2_data):
     ])
 
 
-# --- Contact / PA portal ---
-@app.callback(
+@callback(
     Output("contact-content",      "children"),
     Input("contact-search-button", "n_clicks"),
     Input("data-ready-store-ps",   "data"),
@@ -2150,9 +1987,9 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q2_data, q3_da
         return ""
 
     filled_df = pd.DataFrame(q2_data)
-    total_records       = len(filled_df)
-    records_with_pa     = filled_df['IssuedPACode'].notna().sum()
-    records_without_pa  = filled_df['IssuedPACode'].isna().sum()
+    total_records      = len(filled_df)
+    records_with_pa    = filled_df['IssuedPACode'].notna().sum()
+    records_without_pa = filled_df['IssuedPACode'].isna().sum()
 
     if not n_clicks or not enrollee_id:
         return html.Div([
@@ -2198,7 +2035,6 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q2_data, q3_da
 
         current_year_options = [{'label': 'Current Policy Year', 'value': 'current'}] + \
                                [{'label': py, 'value': py} for py in policy_years_sorted]
-        default_policy_year  = 'current'
         row = member_df[member_df['policy_year'] == policy_years_sorted[0]].iloc[0] if policy_years_sorted else member_df.iloc[0]
 
         res_row    = result_df[result_df['memberno'] == enrollee_id]
@@ -2238,17 +2074,14 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q2_data, q3_da
         return html.Div([
             html.H4(f"Wellness Booking Details for {row['MemberName']}", style={"color": "purple"}),
             html.Label("Select Policy Year", style={"fontWeight": "bold", "color": "purple"}),
-            dcc.Dropdown(id="contact-policy-year", options=current_year_options,
-                         value=default_policy_year, clearable=False),
+            dcc.Dropdown(id="contact-policy-year", options=current_year_options, value='current', clearable=False),
             html.Br(),
             html.H5("Booking Details", style={"color": "purple"}),
             html.Table(table_rows, style={'width': '100%', 'borderCollapse': 'collapse'}),
             html.Hr(),
-            html.H4("Kindly Update Details of PA Code Issued to Provider for the Enrollee",
-                    style={"color": "purple"}),
+            html.H4("Kindly Update Details of PA Code Issued to Provider for the Enrollee", style={"color": "purple"}),
             dbc.Label("Input the Generated PA Code"),
-            dbc.Input(id="contact-pacode", type="text", placeholder="Enter PA Code",
-                      value=row.get('IssuedPACode', '')),
+            dbc.Input(id="contact-pacode", type="text", placeholder="Enter PA Code", value=row.get('IssuedPACode', '')),
             html.Br(),
             dbc.Label("Select the Tests Conducted"),
             dcc.Dropdown(id="contact-pa-tests", options=PA_TESTS_OPTIONS, multi=True,
@@ -2260,8 +2093,7 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q2_data, q3_da
                          placeholder="Select Provider", value=row.get('PA_Provider', '')),
             html.Br(),
             dbc.Label("Select the Date the PA was Issued"),
-            dcc.DatePickerSingle(id="contact-pa-issue-date", placeholder="Select Date",
-                                 date=row.get('PAIssueDate', None)),
+            dcc.DatePickerSingle(id="contact-pa-issue-date", placeholder="Select Date", date=row.get('PAIssueDate', None)),
             html.Br(),
             dbc.Button("PROCEED", id="contact-proceed-btn", color="primary"),
             html.Div(id="contact-pa-message"),
@@ -2272,7 +2104,7 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q2_data, q3_da
     return dbc.Alert("Invalid Member ID or Enrollee not eligible for Wellness Test.", color="danger")
 
 
-@app.callback(
+@callback(
     Output("contact-pacode",        "value"),
     Output("contact-pa-tests",      "value"),
     Output("contact-pa-provider",   "value"),
@@ -2291,9 +2123,7 @@ def update_form_on_policy_year(policy_year, enrollee_id, q2_data):
 
     def get_py_str(row):
         try:
-            start = pd.to_datetime(row['PolicyStartDate'])
-            end   = pd.to_datetime(row['PolicyEndDate'])
-            return f"{start.strftime('%b/%Y')} - {end.strftime('%b/%Y')}"
+            return f"{pd.to_datetime(row['PolicyStartDate']).strftime('%b/%Y')} - {pd.to_datetime(row['PolicyEndDate']).strftime('%b/%Y')}"
         except:
             return "Unknown"
 
@@ -2313,7 +2143,7 @@ def update_form_on_policy_year(policy_year, enrollee_id, q2_data):
     return (row.get('IssuedPACode', ''), pa_tests_value, row.get('PA_Provider', ''), row.get('PAIssueDate', None))
 
 
-@app.callback(
+@callback(
     Output("contact-pa-message",   "children"),
     Input("contact-proceed-btn",   "n_clicks"),
     State("contact-enrollee-id",   "value"),
@@ -2346,12 +2176,10 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
             return "Unknown"
 
     df['policy_year_str'] = df.apply(get_py_str, axis=1)
-    member_df = df[df['MemberNo'] == enrollee_id]
-
-    if policy_year == 'current':
-        target_row = member_df.sort_values('date_submitted', ascending=False).iloc[0]
-    else:
-        target_row = member_df[member_df['policy_year_str'] == policy_year].iloc[0]
+    member_df  = df[df['MemberNo'] == enrollee_id]
+    target_row = (member_df.sort_values('date_submitted', ascending=False).iloc[0]
+                  if policy_year == 'current'
+                  else member_df[member_df['policy_year_str'] == policy_year].iloc[0])
 
     date_submitted = target_row['date_submitted']
 
@@ -2368,15 +2196,12 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
         conn.commit()
     invalidate_cache()
 
-    enrollee_email    = target_row.get('email', '')
-    enrollee_name     = target_row.get('MemberName', '')
-    selected_date     = target_row.get('selected_date', '')
-    selected_provider = target_row.get('selected_provider', '')
-    wellness_benefits = target_row.get('Wellness_benefits', '')
-
     if policy_year == 'current':
-        ok, msg = send_pa_code_email(enrollee_email, enrollee_name, selected_date,
-                                     selected_provider, wellness_benefits)
+        ok, msg = send_pa_code_email(
+            target_row.get('email', ''), target_row.get('MemberName', ''),
+            target_row.get('selected_date', ''), target_row.get('selected_provider', ''),
+            target_row.get('Wellness_benefits', '')
+        )
         if ok:
             return dbc.Alert("PA Code successfully updated for the enrollee. Scheduling email sent.", color="success")
         else:
@@ -2385,8 +2210,7 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
         return dbc.Alert(f"PA Code successfully updated for the enrollee for policy year {policy_year}.", color="success")
 
 
-# --- Services portal navigation ---
-@app.callback(
+@callback(
     Output("services-view-store", "data"),
     Input("services-view-providers-btn", "n_clicks"),
     Input("services-view-plans-btn",     "n_clicks"),
@@ -2400,8 +2224,7 @@ def services_navigation(providers_clicks, plans_clicks):
     return "plans" if btn == "services-view-plans-btn" else "providers"
 
 
-# --- Services portal sidebar ---
-@app.callback(
+@callback(
     Output("services-sidebar",   "children"),
     Input("services-view-store", "data"),
     State("auth-store",          "data"),
@@ -2410,32 +2233,33 @@ def services_navigation(providers_clicks, plans_clicks):
 def render_services_sidebar(view, auth_data):
     username = auth_data.get("username", "") if auth_data else ""
 
+    provider_form = [
+        html.Hr(),
+        html.H5("Add New Provider", style={"color": "purple"}),
+        dbc.Label("Code"),         dbc.Input(id="services-code",          type="text", placeholder="Enter Code"),         html.Br(),
+        dbc.Label("State"),        dbc.Input(id="services-state",         type="text", placeholder="Enter State"),        html.Br(),
+        dbc.Label("Provider Name"),dbc.Input(id="services-provider-name", type="text", placeholder="Enter Provider Name"),html.Br(),
+        dbc.Label("Address"),      dbc.Input(id="services-address",       type="text", placeholder="Enter Address"),      html.Br(),
+        dbc.Label("Provider"),     dbc.Input(id="services-provider",      type="text", placeholder="Enter Provider"),     html.Br(),
+        dbc.Label("Location"),     dbc.Input(id="services-location",      type="text", placeholder="Enter Location"),     html.Br(),
+        dbc.Button("Add Provider", id="services-add-btn", color="success"),
+        html.Div(id="services-add-message"),
+    ]
+
     if username == "MedicalServices":
         return _nav_card([
             html.P("View, edit and manage wellness provider records:", style={"color": "purple"}),
             dbc.Button("View All Providers", id="services-view-btn", color="primary", className="mb-2"),
-            html.Hr(),
-            html.H5("Add New Provider", style={"color": "purple"}),
-            dbc.Label("Code"),    dbc.Input(id="services-code",         type="text", placeholder="Enter Code"),    html.Br(),
-            dbc.Label("State"),   dbc.Input(id="services-state",        type="text", placeholder="Enter State"),   html.Br(),
-            dbc.Label("Provider Name"), dbc.Input(id="services-provider-name", type="text", placeholder="Enter Provider Name"), html.Br(),
-            dbc.Label("Address"), dbc.Input(id="services-address",      type="text", placeholder="Enter Address"), html.Br(),
-            dbc.Label("Provider"),dbc.Input(id="services-provider",     type="text", placeholder="Enter Provider"),html.Br(),
-            dbc.Label("Location"),dbc.Input(id="services-location",     type="text", placeholder="Enter Location"),html.Br(),
-            dbc.Button("Add Provider", id="services-add-btn", color="success"),
-            html.Div(id="services-add-message"),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
-        ])
+        ] + provider_form + [html.Hr(), dbc.Button("Logout", id="logout-btn", color="danger", size="sm")])
 
     if view == "plans":
         return _nav_card([
             html.P("Add New Wellness Plan:", style={"color": "purple"}),
-            dbc.Label("Client Name"),      dbc.Input(id="plans-client-name",       type="text", placeholder="Enter Client Name"),      html.Br(),
-            dbc.Label("Policy No"),        dbc.Input(id="plans-policy-no",         type="text", placeholder="Enter Policy No"),        html.Br(),
-            dbc.Label("Client Plan"),      dbc.Input(id="plans-client-plan",       type="text", placeholder="Enter Client Plan"),      html.Br(),
-            dbc.Label("Customization"),    dbc.Input(id="plans-customization",     type="text", placeholder="Enter Customization"),    html.Br(),
-            dbc.Label("Wellness Benefits"),dbc.Input(id="plans-wellness-benefits", type="text", placeholder="Enter Wellness Benefits"),html.Br(),
+            dbc.Label("Client Name"),       dbc.Input(id="plans-client-name",       type="text", placeholder="Enter Client Name"),       html.Br(),
+            dbc.Label("Policy No"),         dbc.Input(id="plans-policy-no",         type="text", placeholder="Enter Policy No"),         html.Br(),
+            dbc.Label("Client Plan"),       dbc.Input(id="plans-client-plan",       type="text", placeholder="Enter Client Plan"),       html.Br(),
+            dbc.Label("Customization"),     dbc.Input(id="plans-customization",     type="text", placeholder="Enter Customization"),     html.Br(),
+            dbc.Label("Wellness Benefits"), dbc.Input(id="plans-wellness-benefits", type="text", placeholder="Enter Wellness Benefits"), html.Br(),
             dbc.Button("Add Plan", id="plans-add-btn", color="success"),
             html.Div(id="plans-add-message"),
             html.Hr(),
@@ -2445,23 +2269,10 @@ def render_services_sidebar(view, auth_data):
         return _nav_card([
             html.P("View, edit and manage wellness provider records:", style={"color": "purple"}),
             dbc.Button("View All Providers", id="services-view-btn", color="primary", className="mb-2"),
-            html.Hr(),
-            html.H5("Add New Provider", style={"color": "purple"}),
-            dbc.Label("Code"),    dbc.Input(id="services-code",         type="text", placeholder="Enter Code"),    html.Br(),
-            dbc.Label("State"),   dbc.Input(id="services-state",        type="text", placeholder="Enter State"),   html.Br(),
-            dbc.Label("Provider Name"), dbc.Input(id="services-provider-name", type="text", placeholder="Enter Provider Name"), html.Br(),
-            dbc.Label("Address"), dbc.Input(id="services-address",      type="text", placeholder="Enter Address"), html.Br(),
-            dbc.Label("Provider"),dbc.Input(id="services-provider",     type="text", placeholder="Enter Provider"),html.Br(),
-            dbc.Label("Location"),dbc.Input(id="services-location",     type="text", placeholder="Enter Location"),html.Br(),
-            dbc.Button("Add Provider", id="services-add-btn", color="success"),
-            html.Div(id="services-add-message"),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
-        ])
+        ] + provider_form + [html.Hr(), dbc.Button("Logout", id="logout-btn", color="danger", size="sm")])
 
 
-# --- Services portal - Populate State Filter Dropdown ---
-@app.callback(
+@callback(
     Output("services-state-dropdown","options"),
     Input("data-ready-store-ps",     "data"),
     State("store-q3",                "data"),
@@ -2476,29 +2287,27 @@ def populate_state_filter(ready, q3_data):
     return [{"label": s, "value": s} for s in sorted(df['STATE'].dropna().unique())]
 
 
-# --- Services portal - Filter stores ---
-@app.callback(Output("services-state-filter",         "data"), Input("services-state-dropdown",    "value"), prevent_initial_call=True)
+@callback(Output("services-state-filter",         "data"), Input("services-state-dropdown",     "value"), prevent_initial_call=True)
 def update_state_filter(v):         return v
 
-@app.callback(Output("services-provider-name-filter", "data"), Input("services-provider-name-input","value"), prevent_initial_call=True)
+@callback(Output("services-provider-name-filter", "data"), Input("services-provider-name-input","value"), prevent_initial_call=True)
 def update_provider_name_filter(v): return v if v else None
 
-@app.callback(Output("services-plan-type-filter",     "data"), Input("services-plan-type-dropdown", "value"), prevent_initial_call=True)
+@callback(Output("services-plan-type-filter",     "data"), Input("services-plan-type-dropdown",  "value"), prevent_initial_call=True)
 def update_plan_type_filter(v):     return v
 
-@app.callback(Output("services-client-name-filter",   "data"), Input("services-client-name-input",  "value"), prevent_initial_call=True)
+@callback(Output("services-client-name-filter",   "data"), Input("services-client-name-input",   "value"), prevent_initial_call=True)
 def update_client_name_filter(v):   return v if v else None
 
 
-# --- Services portal - View Providers/Plans ---
-@app.callback(
-    Output("services-content",          "children"),
-    Input("services-view-store",        "data"),
-    Input("data-ready-store-ps",        "data"),
-    Input("services-state-filter",      "data"),
-    Input("services-provider-name-filter","data"),
-    Input("services-plan-type-filter",  "data"),
-    Input("services-client-name-filter","data"),
+@callback(
+    Output("services-content",             "children"),
+    Input("services-view-store",           "data"),
+    Input("data-ready-store-ps",           "data"),
+    Input("services-state-filter",         "data"),
+    Input("services-provider-name-filter", "data"),
+    Input("services-plan-type-filter",     "data"),
+    Input("services-client-name-filter",   "data"),
     State("store-q3",  "data"),
     State("store-q5",  "data"),
     State("auth-store","data"),
@@ -2508,7 +2317,6 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                    client_name_filter, q3_data, q5_data, auth_data):
     if not auth_data or not auth_data.get("authenticated"):
         return ""
-
     username = auth_data.get("username", "")
     if username == "MedicalServices":
         view = "providers"
@@ -2516,7 +2324,6 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
         view = "plans"
     else:
         return ""
-
     if not ready:
         return ""
     if not view:
@@ -2606,17 +2413,16 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
         ])
 
 
-# --- Services portal - Add Provider ---
-@app.callback(
+@callback(
     Output("services-add-message","children"),
-    Input("services-add-btn",    "n_clicks"),
-    State("services-code",       "value"),
-    State("services-state",      "value"),
+    Input("services-add-btn",     "n_clicks"),
+    State("services-code",        "value"),
+    State("services-state",       "value"),
     State("services-provider-name","value"),
-    State("services-address",    "value"),
-    State("services-provider",   "value"),
-    State("services-location",   "value"),
-    State("auth-store",          "data"),
+    State("services-address",     "value"),
+    State("services-provider",    "value"),
+    State("services-location",    "value"),
+    State("auth-store",           "data"),
     prevent_initial_call=True,
 )
 def add_provider(n_clicks, code, state, provider_name, address, provider, location, auth_data):
@@ -2641,12 +2447,11 @@ def add_provider(n_clicks, code, state, provider_name, address, provider, locati
         return dbc.Alert(f"Error adding provider: {e}", color="danger")
 
 
-# --- Services portal - Save Providers ---
-@app.callback(
-    Output("services-save-message",  "children"),
-    Input("services-save-btn",       "n_clicks"),
-    State("services-providers-table","data"),
-    State("auth-store",              "data"),
+@callback(
+    Output("services-save-message",   "children"),
+    Input("services-save-btn",        "n_clicks"),
+    State("services-providers-table", "data"),
+    State("auth-store",               "data"),
     prevent_initial_call=True,
 )
 def save_providers(n_clicks, table_data, auth_data):
@@ -2671,8 +2476,7 @@ def save_providers(n_clicks, table_data, auth_data):
         return dbc.Alert(f"Error saving changes: {e}", color="danger")
 
 
-# --- Services portal - Delete Providers ---
-@app.callback(
+@callback(
     Output("services-delete-message",  "children"),
     Input("services-delete-btn",       "n_clicks"),
     State("services-providers-table",  "selected_rows"),
@@ -2698,8 +2502,7 @@ def delete_providers(n_clicks, selected_rows, table_data, auth_data):
         return dbc.Alert(f"Error deleting provider(s): {e}", color="danger")
 
 
-# --- Services portal - Add Plan ---
-@app.callback(
+@callback(
     Output("plans-add-message", "children"),
     Input("plans-add-btn",      "n_clicks"),
     State("plans-client-name",       "value"),
@@ -2734,8 +2537,7 @@ def add_plan(n_clicks, client_name, policy_no, client_plan, customization, welln
         return dbc.Alert(f"Error adding plan: {e}", color="danger")
 
 
-# --- Services portal - Save Plans ---
-@app.callback(
+@callback(
     Output("plans-save-message", "children"),
     Input("plans-save-btn",      "n_clicks"),
     State("services-plans-table","data"),
@@ -2765,8 +2567,7 @@ def save_plans(n_clicks, table_data, auth_data):
         return dbc.Alert(f"Error saving changes: {e}", color="danger")
 
 
-# --- Services portal - Delete Plans ---
-@app.callback(
+@callback(
     Output("plans-delete-message", "children"),
     Input("plans-delete-btn",      "n_clicks"),
     State("services-plans-table",  "selected_rows"),
@@ -2794,15 +2595,3 @@ def delete_plans(n_clicks, selected_rows, table_data, auth_data):
         return dbc.Alert("Selected plan(s) deleted successfully!", color="success")
     except Exception as e:
         return dbc.Alert(f"Error deleting plan(s): {e}", color="danger")
-
-
-# =============================================================================
-# ENTRY POINT
-# =============================================================================
-if __name__ == '__main__':
-    print("=" * 60, flush=True)
-    print("Starting Combined AVON HMO Wellness Portal...", flush=True)
-    print("Wellness Dashboard  → http://127.0.0.1:8050/", flush=True)
-    print("Provider Portal     → http://127.0.0.1:8050/provider", flush=True)
-    print("=" * 60, flush=True)
-    app.run(debug=True, port=8050)
