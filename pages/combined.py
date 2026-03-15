@@ -1072,7 +1072,7 @@ def wellness_portal_layout():
                             ], id='member-id-submit-btn', color="primary",
                                className="w-100 btn-primary-custom d-flex align-items-center justify-content-center",
                                style={"color": "white"}),
-                            html.Small("Enter your Member ID from URL (?member=12345) or manually",
+                            html.Small("Double check that your Member ID is correct. If you have any issues, please contact our support team.",
                                       className="d-block text-center mt-3",
                                       style={"color": "rgba(113, 128, 150, 0.6)"})
                         ], className="p-2")
