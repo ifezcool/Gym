@@ -23,7 +23,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY app.py .
 COPY pages/ ./pages/
-COPY secrets.env .
 
 # Copy any static assets referenced in the code
 COPY wellness_image_1.png .
