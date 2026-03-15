@@ -28,7 +28,7 @@ COPY secrets.env .
 # Copy any static assets referenced in the code
 COPY wellness_image_1.png .
 COPY GymPortal.png .
-COPY "Ladol Special Wellness.csv" .
+COPY ["Ladol Special Wellness.csv", "."]
 
 EXPOSE 8050
 
