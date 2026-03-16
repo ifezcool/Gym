@@ -591,6 +591,7 @@ def build_health_questionnaire():
                     {'label': ' Uncle/Aunty ',     'value': 'Uncle/Aunty'},
                     {'label': ' Nobody ',          'value': 'Nobody'}
                 ],
+                value='Nobody',
                 inline=True, className="custom-radio"
             )
         ]))
@@ -610,6 +611,7 @@ def build_health_questionnaire():
                     {'label': ' No ',                       'value': 'No'},
                     {'label': ' Yes, but not on Medication ', 'value': 'Yes, but not on Medication'}
                 ],
+                value='No',
                 inline=True, className="custom-radio"
             )
         ]))
@@ -625,6 +627,7 @@ def build_health_questionnaire():
             dbc.RadioItems(
                 id=f'radio-{qid}',
                 options=[{'label': ' Yes ', 'value': 'Yes'}, {'label': ' No ', 'value': 'No'}],
+                value='No',
                 inline=True, className="custom-radio"
             )
         ]))
@@ -645,6 +648,7 @@ def build_health_questionnaire():
                     {'label': ' Always ',       'value': 'Always'},
                     {'label': ' I Do Not Know ','value': 'I Do Not Know'}
                 ],
+                value='Never',
                 inline=True, className="custom-radio"
             )
         ]))
@@ -1015,8 +1019,6 @@ ps_contact_layout = dbc.Container([
             dbc.Input(id="contact-enrollee-id", type="text", placeholder="Enter Member ID here"),
             html.Br(),
             dbc.Button("Search", id="contact-search-button", color="primary"),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
         ])], width=3),
         dbc.Col([dcc.Loading(type="default", children=html.Div(id="contact-content"))], width=9)
     ])
@@ -1630,30 +1632,14 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
             ))
             conn.connection.commit()
 
-        email_sent, email_error = send_confirmation_email(
-            enrollee_id, enrollee_data['member_name'], email, provider,
-            benefits, selected_date_str, session, enrollee_data['client'], date_communicated
-        )
-
         success_msg = dbc.Alert([
             html.H5(f"Thank you {enrollee_data['member_name']}."),
             html.P("Your annual wellness has been successfully booked."),
             html.Hr(),
             html.P(f"Please note that you have from now till {six_weeks} to complete your annual wellness exercise.", className='font-weight-bold'),
             html.Hr(),
-            html.P("A confirmation Email has been sent to your provided email. Kindly note that your wellness result will only be available two (2) weeks after your visit to the provider for your wellness check.")
+            html.P("You will receive a confirmation email once the Contact Center has issued your PA code.")
         ], color="success", className="mb-0")
-
-        if not email_sent:
-            success_msg = dbc.Alert([
-                html.H5(f"Thank you {enrollee_data['member_name']}."),
-                html.P("Your annual wellness has been successfully booked."),
-                html.Hr(),
-                html.P(f"Please note that you have from now till {six_weeks} to complete your annual wellness exercise.", className='font-weight-bold'),
-                html.Hr(),
-                html.P("However, the confirmation email could not be sent. Please contact support if you don't receive your confirmation.", className='text-warning'),
-                html.Small(f"Error: {email_error}", className='text-muted')
-            ], color="warning", className="mb-0")
 
     except Exception as e:
         return True, dbc.Alert(f"An error occurred: {str(e)}", color="danger")
@@ -2113,7 +2099,7 @@ def show_claims_content(member, policy_period, provider, q2_data):
     Output("contact-content",      "children"),
     Input("contact-search-button", "n_clicks"),
     Input("data-ready-store-ps",   "data"),
-    Input("auth-store",            "data"),
+    State("auth-store",            "data"),
     State("contact-enrollee-id",   "value"),
     State("store-q2",  "data"),
     State("store-q3",  "data"),
