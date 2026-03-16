@@ -17,6 +17,7 @@ import time
 import base64
 import threading
 import urllib.parse
+import json
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from datetime import datetime
@@ -68,6 +69,21 @@ def get_engine():
 
 
 engine = get_engine()
+
+
+def _log_audit(conn, table_name, operation, record_key, changed_by, old_values, new_values):
+    try:
+        cursor = conn.cursor()
+        old_json = json.dumps(old_values, default=str) if old_values else None
+        new_json = json.dumps(new_values, default=str) if new_values else None
+        cursor.execute("""
+            INSERT INTO tbl_wellness_audit_log (table_name, operation, record_key, changed_by, old_values, new_values)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (table_name, operation, record_key, changed_by, old_json, new_json))
+        cursor.close()
+    except Exception as e:
+        pass
+
 
 # =============================================================================
 # SQL QUERIES  — Wellness Dashboard
@@ -133,6 +149,17 @@ def cached_read_sql(query, ttl=_CACHE_TTL):
 def invalidate_cache():
     with _cache_lock:
         _cache.clear()
+
+
+def log_audit_trail(conn, module_name, modified_by, field_name, previous_value=None, new_value=None):
+    try:
+        conn.execute(
+            text("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (:module_name, :modified_by, :field_name, :previous_value, :new_value)"),
+            {"module_name": module_name, "modified_by": modified_by, "field_name": field_name, 
+             "previous_value": previous_value, "new_value": new_value}
+        )
+    except Exception:
+        pass
 
 
 # =============================================================================
@@ -564,7 +591,7 @@ def build_health_questionnaire():
                     {'label': ' Uncle/Aunty ',     'value': 'Uncle/Aunty'},
                     {'label': ' Nobody ',          'value': 'Nobody'}
                 ],
-                value='Grand Parent(s)', inline=True, className="custom-radio"
+                inline=True, className="custom-radio"
             )
         ]))
 
@@ -583,7 +610,7 @@ def build_health_questionnaire():
                     {'label': ' No ',                       'value': 'No'},
                     {'label': ' Yes, but not on Medication ', 'value': 'Yes, but not on Medication'}
                 ],
-                value='Yes', inline=True, className="custom-radio"
+                inline=True, className="custom-radio"
             )
         ]))
 
@@ -598,7 +625,7 @@ def build_health_questionnaire():
             dbc.RadioItems(
                 id=f'radio-{qid}',
                 options=[{'label': ' Yes ', 'value': 'Yes'}, {'label': ' No ', 'value': 'No'}],
-                value='Yes', inline=True, className="custom-radio"
+                inline=True, className="custom-radio"
             )
         ]))
 
@@ -618,7 +645,7 @@ def build_health_questionnaire():
                     {'label': ' Always ',       'value': 'Always'},
                     {'label': ' I Do Not Know ','value': 'I Do Not Know'}
                 ],
-                value='Never', inline=True, className="custom-radio"
+                inline=True, className="custom-radio"
             )
         ]))
 
@@ -919,8 +946,14 @@ ps_login_layout = dbc.Container([
 ps_provider_layout = dbc.Container([
     dbc.Row([dbc.Col([
         html.H2("Provider Wellness Result Submission Portal", className="mt-3"),
-        html.P(id="provider-welcome", className="text-muted"),
-    ])]),
+    ], width=9),
+    dbc.Col([
+        html.Div([
+            html.Span(id="provider-welcome", className="me-3", style={"fontWeight": "bold", "color": "purple"}),
+            dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
+        ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
+    ], width=3)
+    ]),
     dbc.Row([
         dbc.Col([_nav_card([
             html.P("Welcome to the Provider Wellness Result Submission Portal"),
@@ -932,8 +965,6 @@ ps_provider_layout = dbc.Container([
                 ],
                 value="view", inline=True
             ),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
         ])], width=3),
         dbc.Col([html.Div(id="provider-content")], width=9)
     ])
@@ -942,8 +973,14 @@ ps_provider_layout = dbc.Container([
 ps_claims_layout = dbc.Container([
     dbc.Row([dbc.Col([
         html.H2("Provider Wellness Result Review Portal", className="mt-3 text-center", style={"color": "purple"}),
-        html.P(id="claims-welcome", className="text-center text-muted"),
-    ])]),
+    ], width=9),
+    dbc.Col([
+        html.Div([
+            html.Span(id="claims-welcome", className="me-3", style={"fontWeight": "bold", "color": "purple"}),
+            dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
+        ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
+    ], width=3)
+    ]),
     dbc.Row([
         dbc.Col([_nav_card([
             html.P("Please select a Provider to view Submitted Wellness Results"),
@@ -952,8 +989,9 @@ ps_claims_layout = dbc.Container([
             html.Br(),
             dbc.Label("Select Member", style={"color": "purple"}),
             dcc.Dropdown(id="claims-member-select", placeholder="Select Member"),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
+            html.Br(),
+            dbc.Label("Select Policy Period", style={"color": "purple"}),
+            dcc.Dropdown(id="claims-policy-period-select", placeholder="Select Policy Period"),
         ])], width=3),
         dbc.Col([html.Div(id="claims-content")], width=9)
     ])
@@ -962,8 +1000,14 @@ ps_claims_layout = dbc.Container([
 ps_contact_layout = dbc.Container([
     dbc.Row([dbc.Col([
         html.H2("Wellness PA Code Authorisation and Results Review Portal", className="mt-3", style={"color": "purple"}),
-        html.P(id="contact-welcome", className="text-muted"),
-    ])]),
+    ], width=9),
+    dbc.Col([
+        html.Div([
+            html.Span(id="contact-welcome", className="me-3", style={"fontWeight": "bold", "color": "purple"}),
+            dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
+        ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
+    ], width=3)
+    ]),
     dbc.Row([
         dbc.Col([_nav_card([
             html.P("Welcome to the Wellness PA Code Authorisation and Results Review Portal"),
@@ -1559,29 +1603,29 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
                 enrollee_id, enrollee_data['member_name'], client, policy,
                 enrollee_data['policystart'], enrollee_data['policyend'], email, mobile, job_type,
                 age, state, provider, member_gender, benefits, selected_date_str, session,
-                questionnaire_responses.get('resp_1_a', 'Grand Parent(s)'), questionnaire_responses.get('resp_1_b', 'Grand Parent(s)'),
-                questionnaire_responses.get('resp_1_c', 'Grand Parent(s)'), questionnaire_responses.get('resp_1_d', 'Grand Parent(s)'),
-                questionnaire_responses.get('resp_1_e', 'Grand Parent(s)'), questionnaire_responses.get('resp_1_f', 'Grand Parent(s)'),
-                questionnaire_responses.get('resp_1_g', 'Grand Parent(s)'), questionnaire_responses.get('resp_1_h', 'Grand Parent(s)'),
-                questionnaire_responses.get('resp_1_i', 'Grand Parent(s)'), questionnaire_responses.get('resp_1_j', 'Grand Parent(s)'),
-                questionnaire_responses.get('resp_1_k', 'Grand Parent(s)'), questionnaire_responses.get('resp_2_a', 'Yes'),
-                questionnaire_responses.get('resp_2_b', 'Yes'), questionnaire_responses.get('resp_2_c', 'Yes'),
-                questionnaire_responses.get('resp_2_d', 'Yes'), questionnaire_responses.get('resp_2_e', 'Yes'),
-                questionnaire_responses.get('resp_2_f', 'Yes'), questionnaire_responses.get('resp_2_g', 'Yes'),
-                questionnaire_responses.get('resp_2_h', 'Yes'), questionnaire_responses.get('resp_2_i', 'Yes'),
-                questionnaire_responses.get('resp_3_a', 'Yes'), questionnaire_responses.get('resp_3_b', 'Yes'),
-                questionnaire_responses.get('resp_3_c', 'Yes'), questionnaire_responses.get('resp_3_d', 'Yes'),
-                questionnaire_responses.get('resp_3_e', 'Yes'), questionnaire_responses.get('resp_3_f', 'Yes'),
-                questionnaire_responses.get('resp_4_a', 'Never'), questionnaire_responses.get('resp_4_b', 'Never'),
-                questionnaire_responses.get('resp_4_c', 'Never'), questionnaire_responses.get('resp_4_d', 'Never'),
-                questionnaire_responses.get('resp_4_e', 'Never'), questionnaire_responses.get('resp_4_f', 'Never'),
-                questionnaire_responses.get('resp_4_g', 'Never'), questionnaire_responses.get('resp_4_h', 'Never'),
-                questionnaire_responses.get('resp_4_i', 'Never'), questionnaire_responses.get('resp_4_j', 'Never'),
-                questionnaire_responses.get('resp_4_k', 'Never'), questionnaire_responses.get('resp_4_l', 'Never'),
-                questionnaire_responses.get('resp_4_m', 'Never'), questionnaire_responses.get('resp_4_n', 'Never'),
-                questionnaire_responses.get('resp_4_o', 'Never'), questionnaire_responses.get('resp_4_p', 'Never'),
-                questionnaire_responses.get('resp_4_q', 'Never'), questionnaire_responses.get('resp_4_r', 'Never'),
-                questionnaire_responses.get('resp_4_s', 'Never'), questionnaire_responses.get('resp_4_t', 'Never'),
+                questionnaire_responses.get('resp_1_a') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_b') or 'Grand Parent(s)',
+                questionnaire_responses.get('resp_1_c') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_d') or 'Grand Parent(s)',
+                questionnaire_responses.get('resp_1_e') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_f') or 'Grand Parent(s)',
+                questionnaire_responses.get('resp_1_g') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_h') or 'Grand Parent(s)',
+                questionnaire_responses.get('resp_1_i') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_j') or 'Grand Parent(s)',
+                questionnaire_responses.get('resp_1_k') or 'Grand Parent(s)', questionnaire_responses.get('resp_2_a') or 'Yes',
+                questionnaire_responses.get('resp_2_b') or 'Yes', questionnaire_responses.get('resp_2_c') or 'Yes',
+                questionnaire_responses.get('resp_2_d') or 'Yes', questionnaire_responses.get('resp_2_e') or 'Yes',
+                questionnaire_responses.get('resp_2_f') or 'Yes', questionnaire_responses.get('resp_2_g') or 'Yes',
+                questionnaire_responses.get('resp_2_h') or 'Yes', questionnaire_responses.get('resp_2_i') or 'Yes',
+                questionnaire_responses.get('resp_3_a') or 'Yes', questionnaire_responses.get('resp_3_b') or 'Yes',
+                questionnaire_responses.get('resp_3_c') or 'Yes', questionnaire_responses.get('resp_3_d') or 'Yes',
+                questionnaire_responses.get('resp_3_e') or 'Yes', questionnaire_responses.get('resp_3_f') or 'Yes',
+                questionnaire_responses.get('resp_4_a') or 'Never', questionnaire_responses.get('resp_4_b') or 'Never',
+                questionnaire_responses.get('resp_4_c') or 'Never', questionnaire_responses.get('resp_4_d') or 'Never',
+                questionnaire_responses.get('resp_4_e') or 'Never', questionnaire_responses.get('resp_4_f') or 'Never',
+                questionnaire_responses.get('resp_4_g') or 'Never', questionnaire_responses.get('resp_4_h') or 'Never',
+                questionnaire_responses.get('resp_4_i') or 'Never', questionnaire_responses.get('resp_4_j') or 'Never',
+                questionnaire_responses.get('resp_4_k') or 'Never', questionnaire_responses.get('resp_4_l') or 'Never',
+                questionnaire_responses.get('resp_4_m') or 'Never', questionnaire_responses.get('resp_4_n') or 'Never',
+                questionnaire_responses.get('resp_4_o') or 'Never', questionnaire_responses.get('resp_4_p') or 'Never',
+                questionnaire_responses.get('resp_4_q') or 'Never', questionnaire_responses.get('resp_4_r') or 'Never',
+                questionnaire_responses.get('resp_4_s') or 'Never', questionnaire_responses.get('resp_4_t') or 'Never',
                 dt.datetime.now()
             ))
             conn.connection.commit()
@@ -1725,19 +1769,34 @@ def logout(n_clicks):
     return dash.no_update, dash.no_update
 
 
-@callback(Output("provider-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("provider-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=False)
 def update_provider_welcome(d):
-    return f"Logged in as {d.get('providername','')} ({d.get('username','')})" if d and d.get("authenticated") else ""
+    if not d or not d.get("authenticated"):
+        return ""
+    username = d.get("username", "")
+    if username.startswith("234"):
+        return f"Logged in as {d.get('providername','')}"
+    return ""
 
-@callback(Output("claims-welcome",  "children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("claims-welcome",  "children"), Input("auth-store", "data"), prevent_initial_call=False)
 def update_claims_welcome(d):
-    return f"Logged in as {d.get('providername','')} ({d.get('username','')})" if d and d.get("authenticated") else ""
+    if not d or not d.get("authenticated"):
+        return ""
+    username = d.get("username", "")
+    if username.startswith("claim"):
+        return f"Logged in as {d.get('providername','')}"
+    return ""
 
-@callback(Output("contact-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("contact-welcome", "children"), Input("auth-store", "data"), prevent_initial_call=False)
 def update_contact_welcome(d):
-    return f"Logged in as {d.get('providername','')} ({d.get('username','')})" if d and d.get("authenticated") else ""
+    if not d or not d.get("authenticated"):
+        return ""
+    username = d.get("username", "")
+    if username.startswith("contact"):
+        return f"Logged in as Contact Center"
+    return ""
 
-@callback(Output("services-welcome","children"), Input("auth-store", "data"), prevent_initial_call=True)
+@callback(Output("services-welcome","children"), Input("auth-store", "data"), prevent_initial_call=False)
 def update_services_welcome(d):
     if not d or not d.get("authenticated"):
         return ""
@@ -1783,8 +1842,20 @@ def update_provider_content(option, q2_data, q4_data, auth_data):
     pdf = pdf.sort_values('SubmissionStatus').reset_index(drop=True)
 
     if option == "view":
+        submitted_count = (pdf['SubmissionStatus'] == 'Submitted').sum()
+        not_submitted_count = (pdf['SubmissionStatus'] == 'Not Submitted').sum()
         return html.Div([
             html.H3("View Wellness Enrollees and Benefits"),
+            dbc.Row([
+                dbc.Col([dbc.Card([dbc.CardBody([
+                    html.H5(f"{submitted_count}", className="card-title text-center", style={"fontSize": "36px", "color": "green"}),
+                    html.P("Submitted", className="card-text text-center", style={"color": "green"})
+                ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid green"})], width=6),
+                dbc.Col([dbc.Card([dbc.CardBody([
+                    html.H5(f"{not_submitted_count}", className="card-title text-center", style={"fontSize": "36px", "color": "red"}),
+                    html.P("Not Submitted", className="card-text text-center", style={"color": "red"})
+                ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid red"})], width=6),
+            ], className="mb-3"),
             dash_table.DataTable(
                 data=pdf.to_dict('records'),
                 columns=[{"name": i, "id": i} for i in pdf.columns],
@@ -1964,21 +2035,68 @@ def load_claims_members(provider, ready, q2_data):
 
 
 @callback(
+    Output("claims-policy-period-select", "options"),
+    Input("claims-member-select",       "value"),
+    Input("claims-provider-select",    "value"),
+    Input("data-ready-store-ps",        "data"),
+    State("store-q2",                   "data"),
+    prevent_initial_call=False,
+)
+def load_claims_policy_periods(member, provider, ready, q2_data):
+    if not q2_data:
+        return []
+    df = pd.DataFrame(q2_data)
+    if 'PolicyStartDate' not in df.columns or 'PolicyEndDate' not in df.columns:
+        return []
+    df['MemberNo'] = df['MemberNo'].astype(str)
+    if provider:
+        df = df[df['selected_provider'] == provider]
+    if member:
+        member_id = member.split(' - ')[0]
+        df = df[df['MemberNo'] == member_id]
+    df = df.dropna(subset=['PolicyStartDate', 'PolicyEndDate'])
+    if df.empty:
+        return []
+    periods = []
+    for _, row in df.iterrows():
+        start = row['PolicyStartDate']
+        end = row['PolicyEndDate']
+        if isinstance(start, str):
+            start = pd.to_datetime(start, errors='coerce')
+        if isinstance(end, str):
+            end = pd.to_datetime(end, errors='coerce')
+        if pd.notna(start) and pd.notna(end):
+            label = f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}"
+            value = f"{start.strftime('%Y-%m-%d')}|{end.strftime('%Y-%m-%d')}"
+            periods.append({"label": label, "value": value})
+    unique_periods = {p['value']: p for p in periods}.values()
+    return sorted(unique_periods, key=lambda x: x['value'], reverse=True)
+
+
+@callback(
     Output("claims-content",      "children"),
-    Input("claims-member-select", "value"),
-    State("claims-provider-select","value"),
-    State("store-q2",             "data"),
+    Input("claims-member-select",       "value"),
+    Input("claims-policy-period-select","value"),
+    State("claims-provider-select",    "value"),
+    State("store-q2",                  "data"),
     prevent_initial_call=True,
 )
-def show_claims_content(member, provider, q2_data):
+def show_claims_content(member, policy_period, provider, q2_data):
     if not member or not provider or not q2_data:
         return ""
     member_id = member.split(' - ')[0]
     df  = pd.DataFrame(q2_data)
     df['MemberNo'] = df['MemberNo'].astype(str)
-    row = df.sort_values('date_submitted', ascending=False)\
-            .drop_duplicates('MemberNo').reset_index(drop=True)
-    row = row[row['MemberNo'] == member_id].iloc[0]
+    df = df[df['MemberNo'] == member_id]
+    if policy_period:
+        start_date, end_date = policy_period.split('|')
+        df['PolicyStartDate'] = pd.to_datetime(df['PolicyStartDate'], errors='coerce')
+        df['PolicyEndDate'] = pd.to_datetime(df['PolicyEndDate'], errors='coerce')
+        df = df[(df['PolicyStartDate'].dt.strftime('%Y-%m-%d') == start_date) & 
+                (df['PolicyEndDate'].dt.strftime('%Y-%m-%d') == end_date)]
+    if df.empty:
+        return html.Div("No records found for the selected criteria.", style={"color": "red"})
+    row = df.sort_values('date_submitted', ascending=False).iloc[0]
     return html.Div([
         html.H3(f"Test Results for {member}", style={"color": "green"}),
         html.H4(f"Client: {row['Client']}",                                  style={"color": "purple"}),
@@ -2011,28 +2129,54 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q2_data, q3_da
         return ""
 
     filled_df = pd.DataFrame(q2_data)
-    total_records      = len(filled_df)
-    records_with_pa    = filled_df['IssuedPACode'].notna().sum()
-    records_without_pa = filled_df['IssuedPACode'].isna().sum()
+    filled_df['MemberNo'] = filled_df['MemberNo'].astype(str)
+    filled_df['selected_provider'] = filled_df['selected_provider'].fillna('')
+    filled_df['IssuedPACode'] = filled_df['IssuedPACode'].fillna('')
+    filled_df['PAIssueDate'] = filled_df['PAIssueDate'].fillna('')
+    
+    table_df = filled_df[['MemberName', 'MemberNo', 'Client', 'selected_provider', 'date_submitted', 'IssuedPACode', 'PAIssueDate']].copy()
+    table_df = table_df.sort_values('IssuedPACode', ascending=True).reset_index(drop=True)
+    table_df['date_submitted'] = pd.to_datetime(table_df['date_submitted'], format='mixed', errors='coerce').dt.strftime('%Y-%m-%d')
+    table_df['PAIssueDate'] = table_df['PAIssueDate'].apply(lambda x: pd.to_datetime(x, format='mixed', errors='coerce').strftime('%Y-%m-%d') if pd.notna(x) and x else '')
+    
+    total_records = len(filled_df)
+    records_with_pa = (filled_df['IssuedPACode'] != '').sum()
+    records_without_pa = (filled_df['IssuedPACode'] == '').sum()
 
+    cards_html = html.Div([
+        html.H4("Wellness Enrollee Overview", style={"color": "#59058d", "marginBottom": "20px"}),
+        dbc.Row([
+            dbc.Col([dbc.Card([dbc.CardBody([
+                html.H5(f"{total_records}", className="card-title text-center", style={"fontSize": "36px", "color": "#59058d"}),
+                html.P("Total Enrollee Records", className="card-text text-center", style={"color": "#59058d"})
+            ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid #59058d"})], width=4),
+            dbc.Col([dbc.Card([dbc.CardBody([
+                html.H5(f"{records_with_pa}", className="card-title text-center", style={"fontSize": "36px", "color": "green"}),
+                html.P("Records with PA Code", className="card-text text-center", style={"color": "green"})
+            ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid green"})], width=4),
+            dbc.Col([dbc.Card([dbc.CardBody([
+                html.H5(f"{records_without_pa}", className="card-title text-center", style={"fontSize": "36px", "color": "red"}),
+                html.P("Records without PA Code", className="card-text text-center", style={"color": "red"})
+            ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid red"})], width=4),
+        ], className="mb-4"),
+        html.H5("All Enrollees", style={"color": "#59058d", "marginBottom": "10px"}),
+        dash_table.DataTable(
+            data=table_df.to_dict('records'),
+            columns=[{"name": "Member Name", "id": "MemberName"}, {"name": "Member No", "id": "MemberNo"}, 
+                     {"name": "Client Name", "id": "Client"}, {"name": "Provider", "id": "selected_provider"},
+                     {"name": "Submitted Date", "id": "date_submitted"}, {"name": "Avon PA Code", "id": "IssuedPACode"},
+                     {"name": "PA Issue Date", "id": "PAIssueDate"}],
+            style_header=PURPLE_TABLE_STYLE["style_header"],
+            style_cell=PURPLE_TABLE_STYLE["style_cell"],
+            style_data_conditional=PURPLE_TABLE_STYLE["style_data_conditional"] + [
+                {"if": {"filter_query": '{Avon PA Code} = ""', "column_id": "IssuedPACode"}, "backgroundColor": "#ffcccc", "color": "red"},
+            ],
+            style_table={"overflowX": "auto"}, page_size=20,
+        )
+    ])
+    
     if not n_clicks or not enrollee_id:
-        return html.Div([
-            html.H4("Wellness Enrollee Overview", style={"color": "#59058d", "marginBottom": "20px"}),
-            dbc.Row([
-                dbc.Col([dbc.Card([dbc.CardBody([
-                    html.H5(f"{total_records}", className="card-title text-center", style={"fontSize": "36px", "color": "#59058d"}),
-                    html.P("Total Enrollee Records", className="card-text text-center", style={"color": "#59058d"})
-                ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid #59058d"})], width=4),
-                dbc.Col([dbc.Card([dbc.CardBody([
-                    html.H5(f"{records_with_pa}", className="card-title text-center", style={"fontSize": "36px", "color": "#59058d"}),
-                    html.P("Records with PA Code", className="card-text text-center", style={"color": "#59058d"})
-                ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid #59058d"})], width=4),
-                dbc.Col([dbc.Card([dbc.CardBody([
-                    html.H5(f"{records_without_pa}", className="card-title text-center", style={"fontSize": "36px", "color": "#59058d"}),
-                    html.P("Records without PA Code", className="card-text text-center", style={"color": "#59058d"})
-                ])], style={"boxShadow": "0 4px 8px rgba(0,0,0,0.1)", "borderTop": "4px solid #59058d"})], width=4),
-            ])
-        ])
+        return cards_html
 
     enrollee_id = enrollee_id.strip()
     filled_df['ProviderName'] = filled_df['PA_Provider'].str.split('-').str[0].str.strip()
@@ -2206,18 +2350,29 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
                   else member_df[member_df['policy_year_str'] == policy_year].iloc[0])
 
     date_submitted = target_row['date_submitted']
-
-    with engine.connect() as conn:
-        conn.execute(
-            text("""
+    if isinstance(date_submitted, (pd.Timestamp, dt.datetime)):
+        date_submitted = pd.Timestamp(date_submitted).to_pydatetime()
+    
+    conn = engine.raw_connection()
+    try:
+        cursor = conn.cursor()
+        if pa_issue_date:
+            cursor.execute("""
                 UPDATE demo_tbl_annual_wellness_enrollee_data
-                SET IssuedPACode = :pacode, PA_Tests = :pa_tests, PA_Provider = :pa_provider, PAIssueDate = :pa_issue_date
-                WHERE MemberNo = :memberno AND date_submitted = :date_submitted
-            """),
-            {"pacode": pacode, "pa_tests": ','.join(pa_tests), "pa_provider": pa_provider,
-             "pa_issue_date": pa_issue_date, "memberno": enrollee_id, "date_submitted": date_submitted}
-        )
+                SET IssuedPACode = ?, PA_Tests = ?, PA_Provider = ?, PAIssueDate = ?
+                WHERE MemberNo = ? AND date_submitted = ?
+            """, (pacode, ','.join(pa_tests) if isinstance(pa_tests, list) else pa_tests, pa_provider, pa_issue_date, enrollee_id, date_submitted))
+        else:
+            cursor.execute("""
+                UPDATE demo_tbl_annual_wellness_enrollee_data
+                SET IssuedPACode = ?, PA_Tests = ?, PA_Provider = ?, PAIssueDate = NULL
+                WHERE MemberNo = ? AND date_submitted = ?
+            """, (pacode, ','.join(pa_tests) if isinstance(pa_tests, list) else pa_tests, pa_provider, enrollee_id, date_submitted))
         conn.commit()
+        cursor.close()
+    finally:
+        conn.close()
+    
     invalidate_cache()
 
     if policy_year == 'current':
@@ -2356,19 +2511,19 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
             ], style={"marginBottom": "20px"}),
             html.Div([
                 dbc.Button("Add Plan", id="plans-add-btn", color="success", className="me-2"),
-                dbc.Button("Save Changes", id="plans-save-btn", color="primary", className="me-2"),
+                dbc.Button("Edit Selected", id="plans-edit-btn", color="warning", className="me-2"),
                 dbc.Button("Delete Selected", id="plans-delete-btn", color="danger", className="me-2"),
             ], className="mb-2"),
             html.Div(id="plans-delete-message"),
             html.Div(id="plans-save-message"),
             dash_table.DataTable(
                 data=df.to_dict('records'),
-                columns=[{"name": i, "id": i, "editable": True} for i in df.columns],
+                columns=[{"name": i, "id": i} for i in df.columns],
                 style_header=PURPLE_TABLE_STYLE["style_header"],
                 style_cell=PURPLE_TABLE_STYLE["style_cell"],
                 style_data_conditional=PURPLE_TABLE_STYLE["style_data_conditional"],
                 style_table={"overflowX": "auto"}, page_size=20,
-                id="services-plans-table", row_selectable="multi"
+                id="services-plans-table", row_selectable="single"
             ),
             dbc.Modal([
                 dbc.ModalHeader("Add New Wellness Plan"),
@@ -2377,13 +2532,28 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                     dbc.Row([dbc.Col([dbc.Label("Policy No"), dbc.Input(id="plans-policy-no", type="text", placeholder="Enter Policy No")])]),
                     dbc.Row([dbc.Col([dbc.Label("Client Plan"), dbc.Input(id="plans-client-plan", type="text", placeholder="Enter Client Plan")])]),
                     dbc.Row([dbc.Col([dbc.Label("Customization"), dbc.Input(id="plans-customization", type="text", placeholder="Enter Customization")])]),
-                    dbc.Row([dbc.Col([dbc.Label("Wellness Benefits"), dbc.Input(id="plans-wellness-benefits", type="text", placeholder="Enter Wellness Benefits")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Wellness Benefits"), dbc.Textarea(id="plans-wellness-benefits", placeholder="Enter Wellness Benefits", style={"minHeight": "100px"})])]),
                 ]),
                 dbc.ModalFooter([
                     dbc.Button("Submit", id="plans-submit-btn", color="primary"),
                     dbc.Button("Close", id="plans-close-btn", color="secondary", className="ms-2"),
                 ]),
             ], id="plans-modal", is_open=False),
+            dbc.Modal([
+                dbc.ModalHeader("Edit Wellness Plan"),
+                dbc.ModalBody([
+                    dbc.Row([dbc.Col([dbc.Label("Policy No (Read-only)"), dbc.Input(id="plans-edit-policy-no", type="text", disabled=True)])]),
+                    dbc.Row([dbc.Col([dbc.Label("Client Name"), dbc.Input(id="plans-edit-client-name", type="text", placeholder="Enter Client Name")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Client Plan"), dbc.Input(id="plans-edit-client-plan", type="text", placeholder="Enter Client Plan")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Customization"), dbc.Input(id="plans-edit-customization", type="text", placeholder="Enter Customization")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Wellness Benefits"), dbc.Textarea(id="plans-edit-wellness-benefits", placeholder="Enter Wellness Benefits", style={"minHeight": "100px"})])]),
+                ]),
+                dbc.ModalFooter([
+                    dbc.Button("Save", id="plans-edit-save-btn", color="primary"),
+                    dbc.Button("Close", id="plans-edit-close-btn", color="secondary", className="ms-2"),
+                ]),
+            ], id="plans-edit-modal", is_open=False),
+            html.Div(id="plans-edit-message"),
             html.Div(id="plans-add-message"),
         ])
     else:
@@ -2413,21 +2583,19 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
             ], style={"marginBottom": "20px"}),
             html.Div([
                 dbc.Button("Add Provider", id="services-add-btn", color="success", className="me-2"),
-                dbc.Button("Save Changes", id="services-save-btn", color="primary", className="me-2"),
+                dbc.Button("Edit Selected", id="services-edit-btn", color="warning", className="me-2"),
                 dbc.Button("Delete Selected", id="services-delete-btn", color="danger", className="me-2"),
             ], className="mb-2"),
             html.Div(id="services-delete-message"),
             html.Div(id="services-save-message"),
             dash_table.DataTable(
                 data=df.to_dict('records'),
-                columns=[{"name": i, "id": i,
-                          "editable": i in ['CODE', 'STATE', 'PROVIDER_NAME', 'ADDRESS', 'PROVIDER', 'Location']}
-                         for i in df.columns],
+                columns=[{"name": i, "id": i} for i in df.columns],
                 style_header=PURPLE_TABLE_STYLE["style_header"],
                 style_cell=PURPLE_TABLE_STYLE["style_cell"],
                 style_data_conditional=PURPLE_TABLE_STYLE["style_data_conditional"],
                 style_table={"overflowX": "auto"}, page_size=20,
-                id="services-providers-table", row_selectable="multi"
+                id="services-providers-table", row_selectable="single"
             ),
             dbc.Modal([
                 dbc.ModalHeader("Add New Provider"),
@@ -2444,6 +2612,22 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                     dbc.Button("Close", id="services-close-btn", color="secondary", className="ms-2"),
                 ]),
             ], id="services-modal", is_open=False),
+            dbc.Modal([
+                dbc.ModalHeader("Edit Provider"),
+                dbc.ModalBody([
+                    dbc.Row([dbc.Col([dbc.Label("Code (Read-only)"), dbc.Input(id="services-edit-code", type="text", disabled=True)])]),
+                    dbc.Row([dbc.Col([dbc.Label("State"), dcc.Dropdown(id="services-edit-state", options=[{"label": s, "value": s} for s in sorted(pd.DataFrame(q3_data)['STATE'].dropna().unique())] if q3_data else [], placeholder="Select State")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Provider Name"), dbc.Input(id="services-edit-provider-name", type="text", placeholder="Enter Provider Name")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Address"), dbc.Input(id="services-edit-address", type="text", placeholder="Enter Address")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Location"), dbc.Input(id="services-edit-location", type="text", placeholder="Enter Location")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Provider (Auto-filled)"), dbc.Input(id="services-edit-provider", type="text", placeholder="Auto-filled from Name + Location", disabled=True)])]),
+                ]),
+                dbc.ModalFooter([
+                    dbc.Button("Save", id="services-edit-save-btn", color="primary"),
+                    dbc.Button("Close", id="services-edit-close-btn", color="secondary", className="ms-2"),
+                ]),
+            ], id="services-edit-modal", is_open=False),
+            html.Div(id="services-edit-message"),
             html.Div(id="services-add-message"),
         ])
 
@@ -2455,6 +2639,20 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
     prevent_initial_call=True,
 )
 def auto_fill_provider(provider_name, location):
+    if provider_name and location:
+        return f"{provider_name} - {location}"
+    elif provider_name:
+        return provider_name
+    return ""
+
+
+@callback(
+    Output("services-edit-provider", "value", allow_duplicate=True),
+    Input("services-edit-provider-name", "value"),
+    Input("services-edit-location", "value"),
+    prevent_initial_call=True,
+)
+def auto_fill_edit_provider(provider_name, location):
     if provider_name and location:
         return f"{provider_name} - {location}"
     elif provider_name:
@@ -2484,12 +2682,24 @@ def add_provider(n_clicks, code, state, provider_name, address, provider, locati
     if missing:
         return dbc.Alert(f"Please fill: {', '.join(missing)}", color="danger")
     try:
-        with engine.connect() as conn:
-            conn.execute(
-                text("INSERT INTO demo_Updated_Wellness_Providers (CODE, STATE, PROVIDER_NAME, ADDRESS, PROVIDER, Location) VALUES (:code, :state, :provider_name, :address, :provider, :location)"),
-                {"code": code, "state": state, "provider_name": provider_name, "address": address, "provider": provider, "location": location}
-            )
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
+            new_values = {
+                "CODE": code,
+                "STATE": state,
+                "PROVIDER_NAME": provider_name,
+                "ADDRESS": address,
+                "PROVIDER": provider,
+                "Location": location
+            }
+            _log_audit(conn, "demo_Updated_Wellness_Providers", "INSERT", code, auth_data.get("username"), None, new_values)
+            cursor.execute("INSERT INTO demo_Updated_Wellness_Providers (CODE, STATE, PROVIDER_NAME, ADDRESS, PROVIDER, Location) VALUES (?, ?, ?, ?, ?, ?)",
+                (code, state, provider_name, address, provider, location))
             conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
         invalidate_cache()
         return dbc.Alert("Provider added successfully!", color="success")
     except Exception as e:
@@ -2549,16 +2759,50 @@ def save_providers(n_clicks, table_data, auth_data):
     if auth_data.get("username", "") != "MedicalServices" or not n_clicks or not table_data:
         return ""
     try:
-        with engine.connect() as conn:
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
             for row in table_data:
                 code = row.get('CODE')
                 if code:
-                    conn.execute(
-                        text("UPDATE demo_Updated_Wellness_Providers SET STATE=:state, PROVIDER_NAME=:provider_name, ADDRESS=:address, PROVIDER=:provider, Location=:location WHERE CODE=:code"),
-                        {"state": row.get('STATE'), "provider_name": row.get('PROVIDER_NAME'), "address": row.get('ADDRESS'),
-                         "provider": row.get('PROVIDER'), "location": row.get('Location'), "code": code}
-                    )
+                    cursor.execute("SELECT STATE, PROVIDER_NAME, ADDRESS, PROVIDER, Location FROM demo_Updated_Wellness_Providers WHERE CODE=?", (code,))
+                    old_row = cursor.fetchone()
+                    
+                    old_state = old_row[0] if old_row else None
+                    old_provider_name = old_row[1] if old_row else None
+                    old_address = old_row[2] if old_row else None
+                    old_provider = old_row[3] if old_row else None
+                    old_location = old_row[4] if old_row else None
+                    
+                    new_state = row.get('STATE')
+                    new_provider_name = row.get('PROVIDER_NAME')
+                    new_address = row.get('ADDRESS')
+                    new_provider = row.get('PROVIDER')
+                    new_location = row.get('Location')
+                    
+                    if (old_state or '') != (new_state or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("MedicalServices", "MedicalServices", "STATE", old_state, new_state))
+                    if (old_provider_name or '') != (new_provider_name or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("MedicalServices", "MedicalServices", "PROVIDER_NAME", old_provider_name, new_provider_name))
+                    if (old_address or '') != (new_address or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("MedicalServices", "MedicalServices", "ADDRESS", old_address, new_address))
+                    if (old_provider or '') != (new_provider or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("MedicalServices", "MedicalServices", "PROVIDER", old_provider, new_provider))
+                    if (old_location or '') != (new_location or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("MedicalServices", "MedicalServices", "Location", old_location, new_location))
+                    
+                    cursor.execute("UPDATE demo_Updated_Wellness_Providers SET STATE=?, PROVIDER_NAME=?, ADDRESS=?, PROVIDER=?, Location=? WHERE CODE=?", 
+                        (new_state, new_provider_name, new_address, new_provider, new_location, code))
             conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
+        
         invalidate_cache()
         return dbc.Alert("Changes saved successfully!", color="success")
     except Exception as e:
@@ -2579,16 +2823,111 @@ def delete_providers(n_clicks, selected_rows, table_data, auth_data):
     if auth_data.get("username", "") != "MedicalServices" or not n_clicks or not selected_rows or not table_data:
         return ""
     try:
-        with engine.connect() as conn:
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
             for idx in selected_rows:
-                code = table_data[idx].get('CODE')
+                row = table_data[idx]
+                code = row.get('CODE')
                 if code:
-                    conn.execute(text("DELETE FROM demo_Updated_Wellness_Providers WHERE CODE=:code"), {"code": code})
+                    old_values = {
+                        "CODE": code,
+                        "STATE": row.get('STATE'),
+                        "PROVIDER_NAME": row.get('PROVIDER_NAME'),
+                        "ADDRESS": row.get('ADDRESS'),
+                        "PROVIDER": row.get('PROVIDER'),
+                        "Location": row.get('Location')
+                    }
+                    _log_audit(conn, "demo_Updated_Wellness_Providers", "DELETE", code, auth_data.get("username"), old_values, None)
+                    cursor.execute("DELETE FROM demo_Updated_Wellness_Providers WHERE CODE=?", (code,))
             conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
         invalidate_cache()
         return dbc.Alert("Selected provider(s) deleted successfully!", color="success")
     except Exception as e:
         return dbc.Alert(f"Error deleting provider(s): {e}", color="danger")
+
+
+@callback(
+    Output("services-edit-modal", "is_open"),
+    Output("services-edit-code", "value"),
+    Output("services-edit-state", "value"),
+    Output("services-edit-provider-name", "value"),
+    Output("services-edit-address", "value"),
+    Output("services-edit-location", "value"),
+    Output("services-edit-provider", "value"),
+    Input("services-edit-btn", "n_clicks"),
+    State("services-providers-table", "selected_rows"),
+    State("services-providers-table", "data"),
+    prevent_initial_call=True,
+)
+def open_edit_provider_modal(n_clicks, selected_rows, table_data):
+    if not n_clicks or not selected_rows or not table_data:
+        return False, "", None, "", "", "", ""
+    idx = selected_rows[0]
+    row = table_data[idx]
+    return True, row.get('CODE', ''), row.get('STATE'), row.get('PROVIDER_NAME', ''), row.get('ADDRESS', ''), row.get('Location', ''), row.get('PROVIDER', '')
+
+
+@callback(
+    Output("services-edit-message", "children", allow_duplicate=True),
+    Input("services-edit-save-btn", "n_clicks"),
+    State("services-edit-code", "value"),
+    State("services-edit-state", "value"),
+    State("services-edit-provider-name", "value"),
+    State("services-edit-address", "value"),
+    State("services-edit-provider", "value"),
+    State("services-edit-location", "value"),
+    State("auth-store", "data"),
+    prevent_initial_call=True,
+)
+def save_edit_provider(n_clicks, code, state, provider_name, address, provider, location, auth_data):
+    if not auth_data or not auth_data.get("authenticated"):
+        return ""
+    if auth_data.get("username", "") != "MedicalServices" or not n_clicks or not code:
+        return ""
+    try:
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT STATE, PROVIDER_NAME, ADDRESS, PROVIDER, Location FROM demo_Updated_Wellness_Providers WHERE CODE=?", (code,))
+            old_row = cursor.fetchone()
+            old_values = {
+                "STATE": old_row[0] if old_row else None,
+                "PROVIDER_NAME": old_row[1] if old_row else None,
+                "ADDRESS": old_row[2] if old_row else None,
+                "PROVIDER": old_row[3] if old_row else None,
+                "Location": old_row[4] if old_row else None
+            }
+            new_values = {
+                "STATE": state,
+                "PROVIDER_NAME": provider_name,
+                "ADDRESS": address,
+                "PROVIDER": provider,
+                "Location": location
+            }
+            _log_audit(conn, "demo_Updated_Wellness_Providers", "UPDATE", code, auth_data.get("username"), old_values, new_values)
+            cursor.execute("UPDATE demo_Updated_Wellness_Providers SET STATE=?, PROVIDER_NAME=?, ADDRESS=?, PROVIDER=?, Location=? WHERE CODE=?", 
+                (state, provider_name, address, provider, location, code))
+            conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
+        invalidate_cache()
+        return dbc.Alert("Provider updated successfully!", color="success")
+    except Exception as e:
+        return dbc.Alert(f"Error updating provider: {e}", color="danger")
+
+
+@callback(
+    Output("services-edit-modal", "is_open", allow_duplicate=True),
+    Input("services-edit-close-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def close_edit_provider_modal(n_clicks):
+    return False
 
 
 @callback(
@@ -2613,13 +2952,23 @@ def add_plan(n_clicks, client_name, policy_no, client_plan, customization, welln
     if missing:
         return dbc.Alert(f"Please fill: {', '.join(missing)}", color="danger")
     try:
-        with engine.connect() as conn:
-            conn.execute(
-                text("INSERT INTO demo_Wellness_Plans_and_Benefits (CLIENT_NAME, PolicyNo, CLIENT_PLAN, CUSTOMIZATION, WELLNESS_BENEFITS) VALUES (:client_name, :policy_no, :client_plan, :customization, :wellness_benefits)"),
-                {"client_name": client_name, "policy_no": policy_no, "client_plan": client_plan,
-                 "customization": customization, "wellness_benefits": wellness_benefits}
-            )
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
+            new_values = {
+                "CLIENT_NAME": client_name,
+                "PolicyNo": policy_no,
+                "CLIENT_PLAN": client_plan,
+                "CUSTOMIZATION": customization,
+                "WELLNESS_BENEFITS": wellness_benefits
+            }
+            _log_audit(conn, "demo_Wellness_Plans_and_Benefits", "INSERT", policy_no, auth_data.get("username"), None, new_values)
+            cursor.execute("INSERT INTO demo_Wellness_Plans_and_Benefits (CLIENT_NAME, PolicyNo, CLIENT_PLAN, CUSTOMIZATION, WELLNESS_BENEFITS) VALUES (?, ?, ?, ?, ?)",
+                (client_name, policy_no, client_plan, customization, wellness_benefits))
             conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
         invalidate_cache()
         return dbc.Alert("Plan added successfully!", color="success")
     except Exception as e:
@@ -2639,17 +2988,41 @@ def save_plans(n_clicks, table_data, auth_data):
     if auth_data.get("username", "") != "ClientServices" or not n_clicks or not table_data:
         return ""
     try:
-        with engine.connect() as conn:
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
             for row in table_data:
                 client_name = row.get('CLIENT_NAME')
                 policy_no   = row.get('PolicyNo')
                 if client_name and policy_no:
-                    conn.execute(
-                        text("UPDATE demo_Wellness_Plans_and_Benefits SET CLIENT_PLAN=:client_plan, CUSTOMIZATION=:customization, WELLNESS_BENEFITS=:wellness_benefits WHERE CLIENT_NAME=:client_name AND PolicyNo=:policy_no"),
-                        {"client_plan": row.get('CLIENT_PLAN'), "customization": row.get('CUSTOMIZATION'),
-                         "wellness_benefits": row.get('WELLNESS_BENEFITS'), "client_name": client_name, "policy_no": policy_no}
-                    )
+                    cursor.execute("SELECT CLIENT_PLAN, CUSTOMIZATION, WELLNESS_BENEFITS FROM demo_Wellness_Plans_and_Benefits WHERE CLIENT_NAME=? AND PolicyNo=?", (client_name, policy_no))
+                    old_row = cursor.fetchone()
+                    
+                    old_client_plan = old_row[0] if old_row else None
+                    old_customization = old_row[1] if old_row else None
+                    old_wellness_benefits = old_row[2] if old_row else None
+                    
+                    new_client_plan = row.get('CLIENT_PLAN')
+                    new_customization = row.get('CUSTOMIZATION')
+                    new_wellness_benefits = row.get('WELLNESS_BENEFITS')
+                    
+                    if (old_client_plan or '') != (new_client_plan or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("ClientServices", "ClientServices", "CLIENT_PLAN", old_client_plan, new_client_plan))
+                    if (old_customization or '') != (new_customization or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("ClientServices", "ClientServices", "CUSTOMIZATION", old_customization, new_customization))
+                    if (old_wellness_benefits or '') != (new_wellness_benefits or ''):
+                        cursor.execute("INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue) VALUES (?, ?, ?, ?, ?)", 
+                            ("ClientServices", "ClientServices", "WELLNESS_BENEFITS", old_wellness_benefits, new_wellness_benefits))
+                    
+                    cursor.execute("UPDATE demo_Wellness_Plans_and_Benefits SET CLIENT_PLAN=?, CUSTOMIZATION=?, WELLNESS_BENEFITS=? WHERE CLIENT_NAME=? AND PolicyNo=?", 
+                        (new_client_plan, new_customization, new_wellness_benefits, client_name, policy_no))
             conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
+        
         invalidate_cache()
         return dbc.Alert("Changes saved successfully!", color="success")
     except Exception as e:
@@ -2670,17 +3043,104 @@ def delete_plans(n_clicks, selected_rows, table_data, auth_data):
     if auth_data.get("username", "") != "ClientServices" or not n_clicks or not selected_rows or not table_data:
         return ""
     try:
-        with engine.connect() as conn:
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
             for idx in selected_rows:
-                client_name = table_data[idx].get('CLIENT_NAME')
-                policy_no   = table_data[idx].get('PolicyNo')
+                row = table_data[idx]
+                client_name = row.get('CLIENT_NAME')
+                policy_no   = row.get('PolicyNo')
                 if client_name and policy_no:
-                    conn.execute(
-                        text("DELETE FROM demo_Wellness_Plans_and_Benefits WHERE CLIENT_NAME=:client_name AND PolicyNo=:policy_no"),
-                        {"client_name": client_name, "policy_no": policy_no}
-                    )
+                    old_values = {
+                        "CLIENT_NAME": client_name,
+                        "PolicyNo": policy_no,
+                        "CLIENT_PLAN": row.get('CLIENT_PLAN'),
+                        "CUSTOMIZATION": row.get('CUSTOMIZATION'),
+                        "WELLNESS_BENEFITS": row.get('WELLNESS_BENEFITS')
+                    }
+                    _log_audit(conn, "demo_Wellness_Plans_and_Benefits", "DELETE", f"{client_name}|{policy_no}", auth_data.get("username"), old_values, None)
+                    cursor.execute("DELETE FROM demo_Wellness_Plans_and_Benefits WHERE CLIENT_NAME=? AND PolicyNo=?", (client_name, policy_no))
             conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
         invalidate_cache()
         return dbc.Alert("Selected plan(s) deleted successfully!", color="success")
     except Exception as e:
         return dbc.Alert(f"Error deleting plan(s): {e}", color="danger")
+
+
+@callback(
+    Output("plans-edit-modal", "is_open"),
+    Output("plans-edit-policy-no", "value"),
+    Output("plans-edit-client-name", "value"),
+    Output("plans-edit-client-plan", "value"),
+    Output("plans-edit-customization", "value"),
+    Output("plans-edit-wellness-benefits", "value"),
+    Input("plans-edit-btn", "n_clicks"),
+    State("services-plans-table", "selected_rows"),
+    State("services-plans-table", "data"),
+    prevent_initial_call=True,
+)
+def open_edit_plan_modal(n_clicks, selected_rows, table_data):
+    if not n_clicks or not selected_rows or not table_data:
+        return False, "", "", "", "", ""
+    idx = selected_rows[0]
+    row = table_data[idx]
+    return True, row.get('PolicyNo', ''), row.get('CLIENT_NAME', ''), row.get('CLIENT_PLAN', ''), row.get('CUSTOMIZATION', ''), row.get('WELLNESS_BENEFITS', '')
+
+
+@callback(
+    Output("plans-edit-message", "children", allow_duplicate=True),
+    Input("plans-edit-save-btn", "n_clicks"),
+    State("plans-edit-policy-no", "value"),
+    State("plans-edit-client-name", "value"),
+    State("plans-edit-client-plan", "value"),
+    State("plans-edit-customization", "value"),
+    State("plans-edit-wellness-benefits", "value"),
+    State("auth-store", "data"),
+    prevent_initial_call=True,
+)
+def save_edit_plan(n_clicks, policy_no, client_name, client_plan, customization, wellness_benefits, auth_data):
+    if not auth_data or not auth_data.get("authenticated"):
+        return ""
+    if auth_data.get("username", "") != "ClientServices" or not n_clicks or not policy_no:
+        return ""
+    try:
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT CLIENT_NAME, CLIENT_PLAN, CUSTOMIZATION, WELLNESS_BENEFITS FROM demo_Wellness_Plans_and_Benefits WHERE PolicyNo=?", (policy_no,))
+            old_row = cursor.fetchone()
+            old_values = {
+                "CLIENT_NAME": old_row[0] if old_row else None,
+                "CLIENT_PLAN": old_row[1] if old_row else None,
+                "CUSTOMIZATION": old_row[2] if old_row else None,
+                "WELLNESS_BENEFITS": old_row[3] if old_row else None
+            }
+            new_values = {
+                "CLIENT_NAME": client_name,
+                "CLIENT_PLAN": client_plan,
+                "CUSTOMIZATION": customization,
+                "WELLNESS_BENEFITS": wellness_benefits
+            }
+            _log_audit(conn, "demo_Wellness_Plans_and_Benefits", "UPDATE", policy_no, auth_data.get("username"), old_values, new_values)
+            cursor.execute("UPDATE demo_Wellness_Plans_and_Benefits SET CLIENT_NAME=?, CLIENT_PLAN=?, CUSTOMIZATION=?, WELLNESS_BENEFITS=? WHERE PolicyNo=?", 
+                (client_name, client_plan, customization, wellness_benefits, policy_no))
+            conn.commit()
+            cursor.close()
+        finally:
+            conn.close()
+        invalidate_cache()
+        return dbc.Alert("Plan updated successfully!", color="success")
+    except Exception as e:
+        return dbc.Alert(f"Error updating plan: {e}", color="danger")
+
+
+@callback(
+    Output("plans-edit-modal", "is_open", allow_duplicate=True),
+    Input("plans-edit-close-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def close_edit_plan_modal(n_clicks):
+    return False

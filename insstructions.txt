@@ -1,3 +1,1 @@
-I have an audit trail table called WellnessPortalAuditTrail
-I want to use that table to track changes made by users in the MedicalServices and ClientServices Views
-If they delete, add or edit a record, it should be tracked
+In the callback for output(s): services-edit-modal.is_open services-edit-code.value services-edit-state.value services-edit-provider-name.value services-edit-address.value services-edit-location.value services-edit-provider.value Output 6 (services-edit-provider.value) is already in use. To resolve this, set `allow_duplicate=True` on duplicate outputs, or combine the outputs into one callback function, distinguishing the trigger by using `dash.callback_context` if necessary.
