@@ -2336,8 +2336,15 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
                   else member_df[member_df['policy_year_str'] == policy_year].iloc[0])
 
     date_submitted = target_row['date_submitted']
-    if isinstance(date_submitted, (pd.Timestamp, dt.datetime)):
-        date_submitted = pd.Timestamp(date_submitted).to_pydatetime()
+    try:
+        if isinstance(date_submitted, dt.datetime):
+            date_submitted = date_submitted
+        elif isinstance(date_submitted, pd.Timestamp):
+            date_submitted = date_submitted.to_pydatetime()
+        elif isinstance(date_submitted, str):
+            date_submitted = pd.to_datetime(date_submitted).to_pydatetime()
+    except Exception as e:
+        return dbc.Alert(f"Error parsing date: {e}", color="danger")
     
     conn = engine.raw_connection()
     try:
