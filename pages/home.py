@@ -116,7 +116,7 @@ layout = html.Div([
                                             'fontSize': '1.1rem',
                                             'fontWeight': '600',
                                             'borderRadius': '10px',
-                                            'background': 'linear-gradient(135deg, #6B46C1 0%, #805AD5 100%)',
+                                            'background': 'linear-gradient(135deg, #9d7cb8 0%, #7a6b8a 100%)',
                                             'border': 'none',
                                             'color': 'white',
                                             'boxShadow': '0 4px 15px rgba(107, 70, 193, 0.3)',

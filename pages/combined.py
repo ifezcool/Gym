@@ -946,7 +946,6 @@ ps_claims_layout = dbc.Container([
     ])]),
     dbc.Row([
         dbc.Col([_nav_card([
-            html.P("Welcome to the Provider Wellness Result Review Portal"),
             html.P("Please select a Provider to view Submitted Wellness Results"),
             dbc.Label("Select Provider", style={"color": "purple"}),
             dcc.Dropdown(id="claims-provider-select", placeholder="Select Provider"),
@@ -982,11 +981,16 @@ ps_contact_layout = dbc.Container([
 ps_services_layout = dbc.Container([
     dbc.Row([dbc.Col([
         html.H2("Wellness Services Management Portal", className="mt-3", style={"color": "purple"}),
-        html.P(id="services-welcome", className="text-muted"),
-    ])]),
+    ], width=9),
+    dbc.Col([
+        html.Div([
+            html.Span(id="services-welcome", className="me-3", style={"fontWeight": "bold", "color": "purple"}),
+            dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
+        ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
+    ], width=3)
+    ]),
     dbc.Row([
-        dbc.Col([html.Div(id="services-sidebar")], width=3),
-        dbc.Col([dcc.Loading(type="default", children=html.Div(id="services-content"))], width=9)
+        dbc.Col([dcc.Loading(type="default", children=html.Div(id="services-content"))], width=12),
     ])
 ], fluid=True)
 
@@ -1179,6 +1183,7 @@ def check_wellness_data_loaded(n):
     Input('enrollee-id-input',         'n_submit'),
     State('enrollee-id-input',         'value'),
     State('enrollee-data-store',       'data'),
+    prevent_initial_call=True
 )
 def check_eligibility(url_search, n_clicks, n_submit, enrollee_id, stored_data):
     global wellness_df
@@ -1548,8 +1553,9 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
         date_submitted)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """
-        with engine.begin() as conn:
-            conn.execute(text(insert_query), (
+        with engine.connect() as conn:
+            cursor = conn.connection.cursor()
+            cursor.execute(insert_query, (
                 enrollee_id, enrollee_data['member_name'], client, policy,
                 enrollee_data['policystart'], enrollee_data['policyend'], email, mobile, job_type,
                 age, state, provider, member_gender, benefits, selected_date_str, session,
@@ -1578,6 +1584,7 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
                 questionnaire_responses.get('resp_4_s', 'Never'), questionnaire_responses.get('resp_4_t', 'Never'),
                 dt.datetime.now()
             ))
+            conn.connection.commit()
 
         email_sent, email_error = send_confirmation_email(
             enrollee_id, enrollee_data['member_name'], email, provider,
@@ -1732,7 +1739,14 @@ def update_contact_welcome(d):
 
 @callback(Output("services-welcome","children"), Input("auth-store", "data"), prevent_initial_call=True)
 def update_services_welcome(d):
-    return f"Logged in as {d.get('username','')}" if d and d.get("authenticated") else ""
+    if not d or not d.get("authenticated"):
+        return ""
+    username = d.get("username", "")
+    if username == "ClientServices":
+        return "Logged in as Client Services"
+    elif username == "MedicalServices":
+        return "Logged in as Medical Services"
+    return f"Logged in as {username}"
 
 
 @callback(
@@ -1913,29 +1927,40 @@ def submit_results(n_clicks, member, pa_code, tests_conducted, test_date,
 @callback(
     Output("claims-provider-select", "options"),
     Input("data-ready-store-ps",     "data"),
-    State("store-q4",                "data"),
-    prevent_initial_call=True,
+    Input("auth-store",               "data"),
+    State("store-q2",                "data"),
+    prevent_initial_call=False,
 )
-def load_claims_providers(ready, q4_data):
-    if not ready or not q4_data:
+def load_claims_providers(ready, auth_data, q2_data):
+    if not ready or not q2_data:
         return []
-    df = pd.DataFrame(q4_data)
-    return [{"label": p, "value": p} for p in df['providername'].unique()]
+    df = pd.DataFrame(q2_data)
+    if 'selected_provider' not in df.columns:
+        return []
+    providers = df['selected_provider'].dropna().unique()
+    return [{"label": p, "value": p} for p in sorted(providers)]
 
 
 @callback(
     Output("claims-member-select", "options"),
     Input("claims-provider-select","value"),
-    State("store-q4",              "data"),
-    prevent_initial_call=True,
+    Input("data-ready-store-ps",   "data"),
+    State("store-q2",              "data"),
+    prevent_initial_call=False,
 )
-def load_claims_members(provider, q4_data):
-    if not provider or not q4_data:
+def load_claims_members(provider, ready, q2_data):
+    if not q2_data:
         return []
-    df = pd.DataFrame(q4_data)
-    df['memberno'] = df['memberno'].astype(str)
-    df['member']   = df['memberno'].str.cat(df['membername'], sep=' - ')
-    return [{"label": m, "value": m} for m in df[df['providername'] == provider]['member'].unique()]
+    df = pd.DataFrame(q2_data)
+    if 'selected_provider' not in df.columns or 'MemberNo' not in df.columns or 'MemberName' not in df.columns:
+        return []
+    df['MemberNo'] = df['MemberNo'].astype(str)
+    df['member'] = df['MemberNo'].str.cat(df['MemberName'].astype(str), sep=' - ')
+    if provider:
+        filtered = df[df['selected_provider'] == provider]
+    else:
+        filtered = df
+    return [{"label": m, "value": m} for m in filtered['member'].unique()]
 
 
 @callback(
@@ -2230,45 +2255,7 @@ def services_navigation(providers_clicks, plans_clicks):
     prevent_initial_call=True,
 )
 def render_services_sidebar(view, auth_data):
-    username = auth_data.get("username", "") if auth_data else ""
-
-    provider_form = [
-        html.Hr(),
-        html.H5("Add New Provider", style={"color": "purple"}),
-        dbc.Label("Code"),         dbc.Input(id="services-code",          type="text", placeholder="Enter Code"),         html.Br(),
-        dbc.Label("State"),        dcc.Dropdown(id="services-state", options=[], placeholder="Select State"),        html.Br(),
-        dbc.Label("Provider Name"),dbc.Input(id="services-provider-name", type="text", placeholder="Enter Provider Name"),html.Br(),
-        dbc.Label("Address"),      dbc.Input(id="services-address",       type="text", placeholder="Enter Address"),      html.Br(),
-        dbc.Label("Provider"),     dbc.Input(id="services-provider",      type="text", placeholder="Enter Provider"),     html.Br(),
-        dbc.Label("Location"),     dbc.Input(id="services-location",      type="text", placeholder="Enter Location"),     html.Br(),
-        dbc.Button("Add Provider", id="services-add-btn", color="success"),
-        html.Div(id="services-add-message"),
-    ]
-
-    if username == "MedicalServices":
-        return _nav_card([
-            html.P("View, edit and manage wellness provider records:", style={"color": "purple"}),
-            dbc.Button("View All Providers", id="services-view-btn", color="primary", className="mb-2"),
-        ] + provider_form + [html.Hr(), dbc.Button("Logout", id="logout-btn", color="danger", size="sm")])
-
-    if view == "plans":
-        return _nav_card([
-            html.P("Add New Wellness Plan:", style={"color": "purple"}),
-            dbc.Label("Client Name"),       dbc.Input(id="plans-client-name",       type="text", placeholder="Enter Client Name"),       html.Br(),
-            dbc.Label("Policy No"),         dbc.Input(id="plans-policy-no",         type="text", placeholder="Enter Policy No"),         html.Br(),
-            dbc.Label("Client Plan"),       dbc.Input(id="plans-client-plan",       type="text", placeholder="Enter Client Plan"),       html.Br(),
-            dbc.Label("Customization"),     dbc.Input(id="plans-customization",     type="text", placeholder="Enter Customization"),     html.Br(),
-            dbc.Label("Wellness Benefits"), dbc.Input(id="plans-wellness-benefits", type="text", placeholder="Enter Wellness Benefits"), html.Br(),
-            dbc.Button("Add Plan", id="plans-add-btn", color="success"),
-            html.Div(id="plans-add-message"),
-            html.Hr(),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm")
-        ])
-    else:
-        return _nav_card([
-            html.P("View, edit and manage wellness provider records:", style={"color": "purple"}),
-            dbc.Button("View All Providers", id="services-view-btn", color="primary", className="mb-2"),
-        ] + provider_form + [html.Hr(), dbc.Button("Logout", id="logout-btn", color="danger", size="sm")])
+    return html.Div()  # No sidebar for ClientServices and MedicalServices
 
 
 @callback(
@@ -2350,6 +2337,7 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
             df = df[df['CLIENT_PLAN'] == plan_type_filter]
         if client_name_filter:
             df = df[df['CLIENT_NAME'].str.contains(client_name_filter, case=False, na=False)]
+        
         return html.Div([
             html.H4("Wellness Plans & Benefits", style={"color": "purple"}),
             html.P(f"Showing {len(df)} plan(s)", style={"color": "gray"}),
@@ -2366,6 +2354,13 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                               value=client_name_filter or "", debounce=True, style={"width": "200px"}),
                 ], style={"display": "inline-block", "verticalAlign": "top"}),
             ], style={"marginBottom": "20px"}),
+            html.Div([
+                dbc.Button("Add Plan", id="plans-add-btn", color="success", className="me-2"),
+                dbc.Button("Save Changes", id="plans-save-btn", color="primary", className="me-2"),
+                dbc.Button("Delete Selected", id="plans-delete-btn", color="danger", className="me-2"),
+            ], className="mb-2"),
+            html.Div(id="plans-delete-message"),
+            html.Div(id="plans-save-message"),
             dash_table.DataTable(
                 data=df.to_dict('records'),
                 columns=[{"name": i, "id": i, "editable": True} for i in df.columns],
@@ -2375,12 +2370,21 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                 style_table={"overflowX": "auto"}, page_size=20,
                 id="services-plans-table", row_selectable="multi"
             ),
-            html.Br(),
-            dbc.Button("Save Changes",    id="plans-save-btn",   color="success"),
-            html.Br(), html.Br(),
-            dbc.Button("Delete Selected", id="plans-delete-btn", color="danger"),
-            html.Div(id="plans-delete-message"),
-            html.Div(id="plans-save-message")
+            dbc.Modal([
+                dbc.ModalHeader("Add New Wellness Plan"),
+                dbc.ModalBody([
+                    dbc.Row([dbc.Col([dbc.Label("Client Name"), dbc.Input(id="plans-client-name", type="text", placeholder="Enter Client Name")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Policy No"), dbc.Input(id="plans-policy-no", type="text", placeholder="Enter Policy No")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Client Plan"), dbc.Input(id="plans-client-plan", type="text", placeholder="Enter Client Plan")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Customization"), dbc.Input(id="plans-customization", type="text", placeholder="Enter Customization")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Wellness Benefits"), dbc.Input(id="plans-wellness-benefits", type="text", placeholder="Enter Wellness Benefits")])]),
+                ]),
+                dbc.ModalFooter([
+                    dbc.Button("Submit", id="plans-submit-btn", color="primary"),
+                    dbc.Button("Close", id="plans-close-btn", color="secondary", className="ms-2"),
+                ]),
+            ], id="plans-modal", is_open=False),
+            html.Div(id="plans-add-message"),
         ])
     else:
         if not q3_data:
@@ -2390,6 +2394,7 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
             df = df[df['STATE'] == state_filter]
         if provider_name_filter:
             df = df[df['PROVIDER_NAME'].str.contains(provider_name_filter, case=False, na=False)]
+        
         return html.Div([
             html.H4("Wellness Providers", style={"color": "purple"}),
             html.P(f"Showing {len(df)} provider(s)" + (f" in {state_filter}" if state_filter else ""), style={"color": "gray"}),
@@ -2406,6 +2411,13 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                               value=provider_name_filter or "", debounce=True, style={"width": "200px"}),
                 ], style={"display": "inline-block", "verticalAlign": "top"}),
             ], style={"marginBottom": "20px"}),
+            html.Div([
+                dbc.Button("Add Provider", id="services-add-btn", color="success", className="me-2"),
+                dbc.Button("Save Changes", id="services-save-btn", color="primary", className="me-2"),
+                dbc.Button("Delete Selected", id="services-delete-btn", color="danger", className="me-2"),
+            ], className="mb-2"),
+            html.Div(id="services-delete-message"),
+            html.Div(id="services-save-message"),
             dash_table.DataTable(
                 data=df.to_dict('records'),
                 columns=[{"name": i, "id": i,
@@ -2417,18 +2429,42 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                 style_table={"overflowX": "auto"}, page_size=20,
                 id="services-providers-table", row_selectable="multi"
             ),
-            html.Br(),
-            dbc.Button("Save Changes",    id="services-save-btn",   color="success"),
-            html.Br(), html.Br(),
-            dbc.Button("Delete Selected", id="services-delete-btn", color="danger"),
-            html.Div(id="services-delete-message"),
-            html.Div(id="services-save-message")
+            dbc.Modal([
+                dbc.ModalHeader("Add New Provider"),
+                dbc.ModalBody([
+                    dbc.Row([dbc.Col([dbc.Label("Code"), dbc.Input(id="services-code", type="text", placeholder="Enter Code")])]),
+                    dbc.Row([dbc.Col([dbc.Label("State"), dcc.Dropdown(id="services-state", options=[{"label": s, "value": s} for s in sorted(pd.DataFrame(q3_data)['STATE'].dropna().unique())] if q3_data else [], placeholder="Select State")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Provider Name"), dbc.Input(id="services-provider-name", type="text", placeholder="Enter Provider Name")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Address"), dbc.Input(id="services-address", type="text", placeholder="Enter Address")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Location"), dbc.Input(id="services-location", type="text", placeholder="Enter Location")])]),
+                    dbc.Row([dbc.Col([dbc.Label("Provider (Auto-filled)"), dbc.Input(id="services-provider", type="text", placeholder="Auto-filled from Name + Location", disabled=True)])]),
+                ]),
+                dbc.ModalFooter([
+                    dbc.Button("Submit", id="services-submit-btn", color="primary"),
+                    dbc.Button("Close", id="services-close-btn", color="secondary", className="ms-2"),
+                ]),
+            ], id="services-modal", is_open=False),
+            html.Div(id="services-add-message"),
         ])
 
 
 @callback(
+    Output("services-provider", "value"),
+    Input("services-provider-name", "value"),
+    Input("services-location", "value"),
+    prevent_initial_call=True,
+)
+def auto_fill_provider(provider_name, location):
+    if provider_name and location:
+        return f"{provider_name} - {location}"
+    elif provider_name:
+        return provider_name
+    return ""
+
+
+@callback(
     Output("services-add-message","children"),
-    Input("services-add-btn",     "n_clicks"),
+    Input("services-submit-btn",  "n_clicks"),
     State("services-code",        "value"),
     State("services-state",       "value"),
     State("services-provider-name","value"),
@@ -2458,6 +2494,46 @@ def add_provider(n_clicks, code, state, provider_name, address, provider, locati
         return dbc.Alert("Provider added successfully!", color="success")
     except Exception as e:
         return dbc.Alert(f"Error adding provider: {e}", color="danger")
+
+
+@callback(
+    Output("services-modal", "is_open"),
+    Input("services-add-btn", "n_clicks"),
+    Input("services-submit-btn", "n_clicks"),
+    Input("services-close-btn", "n_clicks"),
+    State("services-modal", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_services_modal(add_clicks, submit_clicks, close_clicks, is_open):
+    ctx = callback_context
+    if not ctx.triggered:
+        return is_open
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    if trigger_id == "services-add-btn":
+        return True
+    elif trigger_id in ["services-submit-btn", "services-close-btn"]:
+        return False
+    return is_open
+
+
+@callback(
+    Output("plans-modal", "is_open"),
+    Input("plans-add-btn", "n_clicks"),
+    Input("plans-submit-btn", "n_clicks"),
+    Input("plans-close-btn", "n_clicks"),
+    State("plans-modal", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_plans_modal(add_clicks, submit_clicks, close_clicks, is_open):
+    ctx = callback_context
+    if not ctx.triggered:
+        return is_open
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    if trigger_id == "plans-add-btn":
+        return True
+    elif trigger_id in ["plans-submit-btn", "plans-close-btn"]:
+        return False
+    return is_open
 
 
 @callback(
@@ -2517,7 +2593,7 @@ def delete_providers(n_clicks, selected_rows, table_data, auth_data):
 
 @callback(
     Output("plans-add-message", "children"),
-    Input("plans-add-btn",      "n_clicks"),
+    Input("plans-submit-btn",   "n_clicks"),
     State("plans-client-name",       "value"),
     State("plans-policy-no",         "value"),
     State("plans-client-plan",       "value"),
