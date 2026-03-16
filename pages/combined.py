@@ -2335,14 +2335,11 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
                   if policy_year == 'current'
                   else member_df[member_df['policy_year_str'] == policy_year].iloc[0])
 
-    date_submitted = target_row['date_submitted']
+    policy_start = target_row['PolicyStartDate']
+    policy_end = target_row['PolicyEndDate']
     try:
-        if isinstance(date_submitted, dt.datetime):
-            date_submitted = date_submitted
-        elif isinstance(date_submitted, pd.Timestamp):
-            date_submitted = date_submitted.to_pydatetime()
-        elif isinstance(date_submitted, str):
-            date_submitted = pd.to_datetime(date_submitted).to_pydatetime()
+        policy_start = pd.to_datetime(policy_start).to_pydatetime() if not isinstance(policy_start, dt.datetime) else policy_start
+        policy_end = pd.to_datetime(policy_end).to_pydatetime() if not isinstance(policy_end, dt.datetime) else policy_end
     except Exception as e:
         return dbc.Alert(f"Error parsing date: {e}", color="danger")
     
@@ -2353,14 +2350,14 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
             cursor.execute("""
                 UPDATE demo_tbl_annual_wellness_enrollee_data
                 SET IssuedPACode = ?, PA_Tests = ?, PA_Provider = ?, PAIssueDate = ?
-                WHERE MemberNo = ? AND date_submitted = ?
-            """, (pacode, ','.join(pa_tests) if isinstance(pa_tests, list) else pa_tests, pa_provider, pa_issue_date, enrollee_id, date_submitted))
+                WHERE MemberNo = ? AND PolicyStartDate = ? AND PolicyEndDate = ?
+            """, (pacode, ','.join(pa_tests) if isinstance(pa_tests, list) else pa_tests, pa_provider, pa_issue_date, enrollee_id, policy_start, policy_end))
         else:
             cursor.execute("""
                 UPDATE demo_tbl_annual_wellness_enrollee_data
                 SET IssuedPACode = ?, PA_Tests = ?, PA_Provider = ?, PAIssueDate = NULL
-                WHERE MemberNo = ? AND date_submitted = ?
-            """, (pacode, ','.join(pa_tests) if isinstance(pa_tests, list) else pa_tests, pa_provider, enrollee_id, date_submitted))
+                WHERE MemberNo = ? AND PolicyStartDate = ? AND PolicyEndDate = ?
+            """, (pacode, ','.join(pa_tests) if isinstance(pa_tests, list) else pa_tests, pa_provider, enrollee_id, policy_start, policy_end))
         conn.commit()
         cursor.close()
     finally:
