@@ -1,5 +1,12 @@
-Fix 1 — Replace the query_ps_q4 string
-Find the variable query_ps_q4 in the SQL queries section near the top of the file. It currently selects from demo_tbl_enrollee_wellness_result_data joined to demo_tbl_annual_wellness_enrollee_data with a WHERE clause filtering for records where date_submitted falls outside the policy period. Delete that entire query and replace it with a simple select of all columns from demo_tbl_enrollee_wellness_result_data where test_result_link is not null and not an empty string. No join needed.
+Fix 1 — Add wellness_df to the startup pre-warm
+Inside the load_all_data function, add the loading of wellness_df the same way the other four globals are loaded there. Set the global, cast memberno to int then string just as load_wellness_df currently does, and print the same loading/complete log messages for consistency. After this, the load_wellness_df function can remain as a fallback but in practice will never be needed since the data will already be in memory.
 
-Fix 2 — Tighten the SubmissionStatus assignment in update_provider_content
-Inside the update_provider_content function, find the line that assigns pdf['SubmissionStatus'] using a lambda that checks if each MemberNo is in result_df['memberno'].values. Replace that single line with two lines: first, build a Python set of submitted member numbers by casting result_df['memberno'] to string and converting to a set (handle the case where result_df is empty by defaulting to an empty set). Then assign SubmissionStatus using that set for the lookup instead of the raw numpy array. This is both more correct and more performant.
+Fix 2 — Pre-warm all provider portal query data on startup
+Create a new function, something like _prewarm_provider_data, that calls cached_read_sql for all four provider queries — query_ps_q2, query_ps_q3, query_ps_q4, and query_ps_q5 — in sequence with the same print logging pattern. Wrap it in a try/except just like the wellness pre-warm. Then launch it as a daemon thread immediately after the wellness pre-warm thread is launched, so both run in parallel at startup.
+This means by the time any user logs into the provider portal, all four queries are already sitting in the cache and load_portal_data (the callback triggered on login) will just pull from cache instead of hitting the database cold.
+
+Fix 3 — The one legitimate runtime refresh point
+The session availability check for CERBA LANCET providers intentionally bypasses the cache and hits the database directly — that's correct and should stay as-is since it needs real-time slot availability. Everything else can and should come from cache with the 5-minute TTL already in place.
+
+Fix 4 — Ensure wellness_df global is set before data_loaded gating
+After merging wellness_df loading into load_all_data, update the check_wellness_data_loaded callback condition to also check that wellness_df is not None alongside the three it already checks. This ensures the loading screen stays up until absolutely everything is ready, not just the three currently checked.

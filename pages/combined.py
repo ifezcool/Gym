@@ -175,7 +175,7 @@ filled_wellness_df = None
 
 
 def load_all_data():
-    global wellness_providers, loyalty_enrollees, filled_wellness_df
+    global wellness_providers, loyalty_enrollees, filled_wellness_df, wellness_df
     print("[LOADING] Loading wellness providers data...")
     wellness_providers = cached_read_sql(query3w)
     print("[COMPLETE] Wellness providers data loaded!")
@@ -185,6 +185,10 @@ def load_all_data():
     print("[LOADING] Loading filled wellness data...")
     filled_wellness_df = cached_read_sql(query2w)
     print("[COMPLETE] Filled wellness data loaded!")
+    print("[LOADING] Loading wellness_df...")
+    wellness_df = cached_read_sql(query1)
+    wellness_df['memberno'] = wellness_df['memberno'].astype(int).astype(str)
+    print("[COMPLETE] wellness_df loaded!")
     filled_wellness_df['MemberNo'] = filled_wellness_df['MemberNo'].astype(str)
     loyalty_enrollees['MemberNo']  = loyalty_enrollees['MemberNo'].astype(str)
     print("[ALL COMPLETE] All startup data loaded successfully!")
@@ -198,7 +202,24 @@ def _prewarm_wellness():
         print(f"[cache] Wellness pre-warm warning: {e}")
 
 
+def _prewarm_provider_data():
+    try:
+        print("[LOADING] Pre-warming provider portal queries...")
+        cached_read_sql(query_ps_q2)
+        print("[COMPLETE] query_ps_q2 loaded!")
+        cached_read_sql(query_ps_q3)
+        print("[COMPLETE] query_ps_q3 loaded!")
+        cached_read_sql(query_ps_q4)
+        print("[COMPLETE] query_ps_q4 loaded!")
+        cached_read_sql(query_ps_q5)
+        print("[COMPLETE] query_ps_q5 loaded!")
+        print("[cache] Provider data pre-warm complete.")
+    except Exception as e:
+        print(f"[cache] Provider data pre-warm warning: {e}")
+
+
 threading.Thread(target=_prewarm_wellness, daemon=True).start()
+threading.Thread(target=_prewarm_provider_data, daemon=True).start()
 
 
 def load_wellness_df():
@@ -1207,7 +1228,7 @@ def route_wellness_page(wellness_ready):
     prevent_initial_call=False
 )
 def check_wellness_data_loaded(n):
-    if filled_wellness_df is not None and loyalty_enrollees is not None and wellness_providers is not None:
+    if filled_wellness_df is not None and loyalty_enrollees is not None and wellness_providers is not None and wellness_df is not None:
         return True
     return False
 
