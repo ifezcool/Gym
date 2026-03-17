@@ -981,10 +981,10 @@ ps_provider_layout = dbc.Container([
             html.P("Welcome to the Provider Wellness Result Submission Portal"),
             html.Div([
                 dbc.Button("View Wellness Enrollees and Benefits", id="provider-nav-view-btn", 
-                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px", "marginRight": "10px"}),
+                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px", "marginBottom": "8px"}),
                 dbc.Button("Submit Wellness Results", id="provider-nav-submit-btn",
-                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px"}),
-            ])
+                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px", "marginBottom": "8px"}),
+            ], style={"display": "flex", "flexWrap": "wrap", "gap": "10px"})
         ])], width=3),
         dbc.Col([html.Div(id="provider-content")], width=9)
     ])
@@ -1817,7 +1817,7 @@ def update_services_welcome(d):
     State("store-q2",  "data"),
     State("store-q4",  "data"),
     State("auth-store","data"),
-    prevent_initial_call=True,
+    prevent_initial_call=False,
 )
 def update_provider_content(view_clicks, submit_clicks, q2_data, q4_data, auth_data):
     ctx = callback_context
