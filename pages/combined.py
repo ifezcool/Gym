@@ -979,14 +979,12 @@ ps_provider_layout = dbc.Container([
     dbc.Row([
         dbc.Col([_nav_card([
             html.P("Welcome to the Provider Wellness Result Submission Portal"),
-            dbc.RadioItems(
-                id="provider-nav-option",
-                options=[
-                    {"label": "View Wellness Enrollees and Benefits", "value": "view"},
-                    {"label": "Submit Wellness Results",              "value": "submit"}
-                ],
-                value="view", inline=True
-            ),
+            html.Div([
+                dbc.Button("View Wellness Enrollees and Benefits", id="provider-nav-view-btn", 
+                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px", "marginRight": "10px"}),
+                dbc.Button("Submit Wellness Results", id="provider-nav-submit-btn",
+                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px"}),
+            ])
         ])], width=3),
         dbc.Col([html.Div(id="provider-content")], width=9)
     ])
@@ -1814,12 +1812,20 @@ def update_services_welcome(d):
 
 @callback(
     Output("provider-content",   "children"),
-    Input("provider-nav-option", "value"),
+    Input("provider-nav-view-btn",   "n_clicks"),
+    Input("provider-nav-submit-btn", "n_clicks"),
     State("store-q2",  "data"),
     State("store-q4",  "data"),
     State("auth-store","data"),
+    prevent_initial_call=True,
 )
-def update_provider_content(option, q2_data, q4_data, auth_data):
+def update_provider_content(view_clicks, submit_clicks, q2_data, q4_data, auth_data):
+    ctx = callback_context
+    if not ctx.triggered:
+        option = "view"
+    else:
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+        option = "submit" if triggered_id == "provider-nav-submit-btn" else "view"
     if not auth_data or not q2_data or not auth_data.get("username", "").startswith("234"):
         return ""
     filled_df = pd.DataFrame(q2_data)
@@ -1839,7 +1845,7 @@ def update_provider_content(option, q2_data, q4_data, auth_data):
     else:
         mask = filled_df['ProviderName'] == pn
 
-    pdf = filled_df[mask][['MemberNo', 'MemberName', 'IssuedPACode', 'PA_Tests']].copy()
+    pdf = filled_df[mask][['MemberNo', 'MemberName', 'IssuedPACode', 'PA_Tests', 'date_submitted']].copy()
     submitted_members = set(result_df['memberno'].astype(str).tolist()) if not result_df.empty else set()
     pdf['SubmissionStatus'] = pdf['MemberNo'].apply(
         lambda x: 'Submitted' if x in submitted_members else 'Not Submitted'
@@ -1863,7 +1869,7 @@ def update_provider_content(option, q2_data, q4_data, auth_data):
             ], className="mb-3"),
             dash_table.DataTable(
                 data=pdf.to_dict('records'),
-                columns=[{"name": i, "id": i} for i in pdf.columns],
+                columns=[{"name": "Date Submitted" if i == "date_submitted" else i, "id": i} for i in pdf.columns],
                 style_header=PURPLE_TABLE_STYLE["style_header"],
                 style_cell={**PURPLE_TABLE_STYLE["style_cell"], "fontFamily": "Arial"},
                 style_data_conditional=PURPLE_TABLE_STYLE["style_data_conditional"] + [
@@ -2537,6 +2543,8 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                 dbc.Button("Edit Selected", id="plans-edit-btn", color="warning", className="me-2"),
                 dbc.Button("Delete Selected", id="plans-delete-btn", color="danger", className="me-2"),
             ], className="mb-2"),
+            html.Div(id="plans-edit-message"),
+            html.Div(id="plans-add-message"),
             html.Div(id="plans-delete-message"),
             html.Div(id="plans-save-message"),
             dash_table.DataTable(
@@ -2576,8 +2584,14 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                     dbc.Button("Close", id="plans-edit-close-btn", color="secondary", className="ms-2"),
                 ]),
             ], id="plans-edit-modal", is_open=False),
-            html.Div(id="plans-edit-message"),
-            html.Div(id="plans-add-message"),
+            dbc.Modal([
+                dbc.ModalHeader("Confirm Delete"),
+                dbc.ModalBody("Are you sure you want to delete the selected plan(s)? This action cannot be undone."),
+                dbc.ModalFooter([
+                    dbc.Button("Yes, Delete", id="plans-delete-confirm-yes", color="danger"),
+                    dbc.Button("Cancel", id="plans-delete-confirm-no", color="secondary", className="ms-2"),
+                ]),
+            ], id="plans-delete-confirm-modal", is_open=False),
         ])
     else:
         if not q3_data:
@@ -2609,6 +2623,8 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                 dbc.Button("Edit Selected", id="services-edit-btn", color="warning", className="me-2"),
                 dbc.Button("Delete Selected", id="services-delete-btn", color="danger", className="me-2"),
             ], className="mb-2"),
+            html.Div(id="services-edit-message"),
+            html.Div(id="services-add-message"),
             html.Div(id="services-delete-message"),
             html.Div(id="services-save-message"),
             dash_table.DataTable(
@@ -2650,8 +2666,14 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                     dbc.Button("Close", id="services-edit-close-btn", color="secondary", className="ms-2"),
                 ]),
             ], id="services-edit-modal", is_open=False),
-            html.Div(id="services-edit-message"),
-            html.Div(id="services-add-message"),
+            dbc.Modal([
+                dbc.ModalHeader("Confirm Delete"),
+                dbc.ModalBody("Are you sure you want to delete the selected provider(s)? This action cannot be undone."),
+                dbc.ModalFooter([
+                    dbc.Button("Yes, Delete", id="services-delete-confirm-yes", color="danger"),
+                    dbc.Button("Cancel", id="services-delete-confirm-no", color="secondary", className="ms-2"),
+                ]),
+            ], id="services-delete-confirm-modal", is_open=False),
         ])
 
 
@@ -2833,17 +2855,34 @@ def save_providers(n_clicks, table_data, auth_data):
 
 
 @callback(
-    Output("services-delete-message",  "children"),
+    Output("services-delete-confirm-modal", "is_open"),
     Input("services-delete-btn",       "n_clicks"),
+    Input("services-delete-confirm-yes", "n_clicks"),
+    Input("services-delete-confirm-no",  "n_clicks"),
+    prevent_initial_call=True,
+)
+def delete_providers_confirm(delete_clicks, yes_clicks, no_clicks):
+    ctx = callback_context
+    if not ctx.triggered:
+        return False
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    if triggered_id in ("services-delete-btn"):
+        return True
+    return False
+
+
+@callback(
+    Output("services-delete-message",  "children"),
+    Input("services-delete-confirm-yes", "n_clicks"),
     State("services-providers-table",  "selected_rows"),
     State("services-providers-table",  "data"),
     State("auth-store",                "data"),
     prevent_initial_call=True,
 )
-def delete_providers(n_clicks, selected_rows, table_data, auth_data):
+def delete_providers(yes_clicks, selected_rows, table_data, auth_data):
     if not auth_data or not auth_data.get("authenticated"):
         return ""
-    if auth_data.get("username", "") != "MedicalServices" or not n_clicks or not selected_rows or not table_data:
+    if auth_data.get("username", "") != "MedicalServices" or not yes_clicks or not selected_rows or not table_data:
         return ""
     try:
         conn = engine.raw_connection()
@@ -3053,17 +3092,34 @@ def save_plans(n_clicks, table_data, auth_data):
 
 
 @callback(
-    Output("plans-delete-message", "children"),
+    Output("plans-delete-confirm-modal", "is_open"),
     Input("plans-delete-btn",      "n_clicks"),
+    Input("plans-delete-confirm-yes", "n_clicks"),
+    Input("plans-delete-confirm-no",  "n_clicks"),
+    prevent_initial_call=True,
+)
+def delete_plans_confirm(delete_clicks, yes_clicks, no_clicks):
+    ctx = callback_context
+    if not ctx.triggered:
+        return False
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    if triggered_id in ("plans-delete-btn"):
+        return True
+    return False
+
+
+@callback(
+    Output("plans-delete-message", "children"),
+    Input("plans-delete-confirm-yes", "n_clicks"),
     State("services-plans-table",  "selected_rows"),
     State("services-plans-table",  "data"),
     State("auth-store",            "data"),
     prevent_initial_call=True,
 )
-def delete_plans(n_clicks, selected_rows, table_data, auth_data):
+def delete_plans(yes_clicks, selected_rows, table_data, auth_data):
     if not auth_data or not auth_data.get("authenticated"):
         return ""
-    if auth_data.get("username", "") != "ClientServices" or not n_clicks or not selected_rows or not table_data:
+    if auth_data.get("username", "") != "ClientServices" or not yes_clicks or not selected_rows or not table_data:
         return ""
     try:
         conn = engine.raw_connection()
