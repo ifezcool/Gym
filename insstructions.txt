@@ -1,15 +1,2 @@
-The update_pa_code callback runs without error and shows a success message, but the fields IssuedPACode, PA_Tests, PA_Provider, and PAIssueDate remain NULL in demo_tbl_annual_wellness_enrollee_data after clicking Proceed in the Contact Center view. The DB insert from submit_form is confirmed to be working — records exist in the table. The PA update is silently updating zero rows.
-Root cause: The WHERE clause in both cursor.execute UPDATE statements inside update_pa_code is WHERE MemberNo = ? AND date_submitted = ?. The date_submitted value is read from q2_data, which is a dcc.Store populated by .to_dict('records') on a pandas DataFrame. JSON serialisation converts the original pd.Timestamp to a string, then the current code parses it back to a Python datetime using pd.to_datetime(...).to_pydatetime(), which produces microsecond precision — for example 2025-03-15 09:23:41.123456. However, SQL Server's datetime type stores values with 3-millisecond rounding precision. The value in the DB is 2025-03-15 09:23:41.123, not .123456. The pyodbc driver sends the full microsecond-precision Python datetime as a parameter and SQL Server finds no exact match. The UPDATE affects zero rows, commits cleanly, and returns no error.
-Fix: Change the WHERE clause in both UPDATE statements (the pa_issue_date branch and the PAIssueDate = NULL branch) from:
-WHERE MemberNo = ? AND date_submitted = ?
+the change worked, but the email sent after i uploaded and submitted the results was a mail telling me i had been scheduled, thats the wrong mail, it should be a mail telling the person their results are attached to this mail
 
-to:
-WHERE MemberNo = ? AND PolicyStartDate = ? AND PolicyEndDate = ?
-
-And update the cursor.execute parameter tuples accordingly, passing target_row['PolicyStartDate'] and target_row['PolicyEndDate'] instead of date_submitted. Apply the same pd.to_datetime(...).to_pydatetime() parsing to both PolicyStartDate and PolicyEndDate since they also come from the Store as strings. This works because a member cannot have two bookings for the same policy period, making MemberNo + PolicyStartDate + PolicyEndDate a functionally unique key for this update. Remove the entire date_submitted parsing block that currently appears between the target_row assignment and the conn = engine.raw_connection() line — it is no longer needed.
-Constraints:
-
-Only change the WHERE clause and parameter tuples in the two cursor.execute UPDATE statements inside update_pa_code
-Remove the now-unused date_submitted variable and its parse block
-Do not change anything else in update_pa_code — the PA tests join, the send_pa_code_email call, the policy year logic, and the auth guard must all remain exactly as-is
-Do not change any other callback

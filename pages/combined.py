@@ -286,7 +286,6 @@ def send_email_with_attachment(recipient_email, enrollee_name, provider_name,
                                bcc_email='ifeoluwa.adeniyi@avonhealthcare.com'):
     sender_email   = 'noreply@avonhealthcare.com'
     email_password = os.environ.get('email_password')
-    recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
 
     if selected_date and selected_provider and wellness_benefits:
         body = f"""
@@ -1901,6 +1900,7 @@ def show_submission_form(member, q2_data):
                    'borderStyle': 'dashed', 'borderRadius': '5px', 'textAlign': 'center', 'margin': '10px'},
             multiple=True
         ),
+        html.Div(id="upload-filename-display"),
         html.Br(),
         dbc.Button("Submit Results", id="submit-results-btn", color="success"),
         html.Div(id="ps-submission-message")
@@ -1908,7 +1908,20 @@ def show_submission_form(member, q2_data):
 
 
 @callback(
+    Output("upload-filename-display", "children"),
+    Input("upload-results", "filename"),
+    prevent_initial_call=True,
+    allow_duplicate=False,
+)
+def display_uploaded_filenames(filenames):
+    if not filenames:
+        return ""
+    return html.Div([html.P(fn, style={"color": "green"}) for fn in filenames])
+
+
+@callback(
     Output("ps-submission-message", "children"),
+    Output("store-q4", "data", allow_duplicate=True),
     Input("submit-results-btn",     "n_clicks"),
     State("member-select",          "value"),
     State("pa-code-input",          "value"),
@@ -1923,11 +1936,11 @@ def show_submission_form(member, q2_data):
 def submit_results(n_clicks, member, pa_code, tests_conducted, test_date,
                    uploaded_filenames, uploaded_contents, q2_data, auth_data):
     if not n_clicks or not member:
-        return ""
+        return "", dash.no_update
     missing = [f for f, v in [('PA Code', pa_code), ('Tests Conducted', tests_conducted),
                                ('Test Date', test_date), ('Uploaded File', uploaded_filenames)] if not v]
     if missing:
-        return dbc.Alert(f"Compulsory fields missing: {', '.join(missing)}", color="danger")
+        return dbc.Alert(f"Compulsory fields missing: {', '.join(missing)}", color="danger"), dash.no_update
 
     member_no = member.split(' - ')[0]
     df = pd.DataFrame(q2_data)
@@ -1969,16 +1982,16 @@ def submit_results(n_clicks, member, pa_code, tests_conducted, test_date,
         conn.commit()
     invalidate_cache()
 
-    selected_date_str = row['selected_date'].strftime("%Y-%m-%d") if hasattr(row.get('selected_date'), 'strftime') else str(row.get('selected_date', ''))
+    q4_df = cached_read_sql(query_ps_q4)
+    q4_data = q4_df.to_dict('records')
+
     ok, msg = send_email_with_attachment(
         row['email'], row['MemberName'], auth_data.get("providername", ""),
-        test_date, 'AVON HMO ANNUAL TEST RESULTS', uploaded_files,
-        selected_date=selected_date_str,
-        selected_provider=row.get('selected_provider'),
-        wellness_benefits=row.get('Wellness_benefits')
+        test_date, 'AVON HMO ANNUAL TEST RESULTS', uploaded_files
     )
-    return dbc.Alert("Results submitted. Email sent to enrollee.", color="success") \
-           if ok else dbc.Alert(msg, color="danger")
+    if ok:
+        return dbc.Alert("Results submitted. Email sent to enrollee.", color="success"), q4_data
+    return dbc.Alert(msg, color="danger"), q4_data
 
 
 @callback(
