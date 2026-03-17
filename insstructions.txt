@@ -1,6 +1,14 @@
-Fix 1 — Button spacing in ps_provider_layout
-Find the html.Div containing provider-nav-view-btn and provider-nav-submit-btn. The view button currently has "marginRight": "10px" but the buttons are still cramped. Add "marginBottom": "8px" to each button's style, increase the marginRight on the view button to "15px", and add "display": "flex", "flexWrap": "wrap", and "gap": "10px" to the wrapping html.Div instead of relying on individual margins. Remove the marginRight from the individual button styles since the gap on the container handles spacing uniformly.
+In pages/combined.py, the edit operations for both ClientServices and MedicalServices are not logging to the audit trail. The root cause is the same in all four affected callbacks: _log_audit is called before conn.commit(), but _log_audit internally opens its own cursor, executes an INSERT, and then calls conn.commit() on the same connection — which then commits both the audit INSERT and leaves the connection in a state where the subsequent conn.commit() in the calling function is essentially a no-op for the audit row but the ordering means the audit row may not be reliably persisted.
+However the real specific problem is this: in save_edit_plan (ClientServices edit) and save_edit_provider (MedicalServices edit), the sequence is:
 
-Fix 2 — Provider view starts blank instead of showing the table on load
-The update_provider_content callback currently has prevent_initial_call=True and only fires when one of the two nav buttons is clicked. This means on first login, nothing renders until a button is pressed.
-Change prevent_initial_call=True to prevent_initial_call=False on that callback. Then at the top of the callback function body, update the triggered ID logic: when ctx.triggered is empty OR when the triggered prop is something other than provider-nav-submit-btn (including the initial call with no trigger), default option to "view". This means the table and summary cards will render immediately when the provider portal loads after login, without requiring any button click.
+_log_audit(conn, ...) is called — this opens a new cursor on the raw connection, does an INSERT into WellnessPortalAuditTrail, commits via _log_audit's own conn.commit(), closes its cursor
+Then the actual UPDATE cursor.execute(...) runs on the original cursor
+Then conn.commit() is called
+
+The problem: _log_audit calls conn.commit() inside itself — but look at _log_audit's definition, it does NOT call conn.commit(). It only does cursor.execute(...) and cursor.close() with no commit. So the audit INSERT is never committed before conn.close() is called in the finally block, and it gets rolled back silently.
+The fix is simple and applies to both save_edit_plan and save_edit_provider: swap the order so the _log_audit call happens after conn.commit(), not before it. This way the main operation commits first, then the audit log is written and committed by adding an explicit conn.commit() call inside _log_audit after cursor.execute and before cursor.close.
+Specifically make these two changes:
+Change 1 — Add conn.commit() inside _log_audit in the _log_audit function definition, add conn.commit() on a new line immediately after cursor.execute(...) and before cursor.close(). This makes _log_audit self-contained and responsible for its own commit, which fixes it for all callers consistently.
+Change 2 — In save_edit_plan, move the _log_audit(...) call to after conn.commit() and before cursor.close(). So the order becomes: UPDATE execute → commit → log audit → close cursor.
+Change 3 — In save_edit_provider, do the exact same reordering: UPDATE execute → commit → log audit → close cursor.
+This same fix covers both ClientServices and MedicalServices since both edit callbacks share the same broken ordering pattern.

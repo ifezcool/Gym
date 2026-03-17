@@ -76,10 +76,12 @@ def _log_audit(conn, table_name, operation, record_key, changed_by, old_values, 
         cursor = conn.cursor()
         old_json = json.dumps(old_values, default=str) if old_values else None
         new_json = json.dumps(new_values, default=str) if new_values else None
+        field_changed = f"{operation} - {record_key}"
         cursor.execute("""
-            INSERT INTO tbl_wellness_audit_log (table_name, operation, record_key, changed_by, old_values, new_values)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (table_name, operation, record_key, changed_by, old_json, new_json))
+            INSERT INTO WellnessPortalAuditTrail (ModuleName, ModifiedBy, FieldChangedName, PreviousValue, NewValue)
+            VALUES (?, ?, ?, ?, ?)
+        """, (table_name, changed_by, field_changed, old_json, new_json))
+        conn.commit()
         cursor.close()
     except Exception as e:
         pass
@@ -2542,6 +2544,7 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                 dbc.Button("Add Plan", id="plans-add-btn", color="success", className="me-2"),
                 dbc.Button("Edit Selected", id="plans-edit-btn", color="warning", className="me-2"),
                 dbc.Button("Delete Selected", id="plans-delete-btn", color="danger", className="me-2"),
+                dbc.Button("Update Member's Wellness Provider", id="plans-change-provider-btn", color="info", className="me-2"),
             ], className="mb-2"),
             html.Div(id="plans-edit-message"),
             html.Div(id="plans-add-message"),
@@ -2592,6 +2595,19 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
                     dbc.Button("Cancel", id="plans-delete-confirm-no", color="secondary", className="ms-2"),
                 ]),
             ], id="plans-delete-confirm-modal", is_open=False),
+            dbc.Modal([
+                dbc.ModalHeader("Update Wellness Provider for Member"),
+                dbc.ModalBody([
+                    dbc.Row([dbc.Col([dbc.Label("Member ID"), dbc.Input(id="plans-change-member-id", type="text", placeholder="Enter Member ID")])]),
+                    dbc.Row([dbc.Col([dbc.Label("New Provider"), dcc.Dropdown(id="plans-change-provider-dropdown", placeholder="Select Provider")])]),
+                    dbc.Row([dbc.Col([dbc.Label("New Appointment Date"), dcc.DatePickerSingle(id="plans-change-date-picker", placeholder="Select Date")])]),
+                    html.Div(id="plans-change-provider-message"),
+                ]),
+                dbc.ModalFooter([
+                    dbc.Button("Submit", id="plans-change-submit-btn", color="primary"),
+                    dbc.Button("Close", id="plans-change-close-btn", color="secondary", className="ms-2"),
+                ]),
+            ], id="plans-change-provider-modal", is_open=False),
         ])
     else:
         if not q3_data:
@@ -2970,10 +2986,10 @@ def save_edit_provider(n_clicks, code, state, provider_name, address, provider, 
                 "PROVIDER": provider,
                 "Location": location
             }
-            _log_audit(conn, "demo_Updated_Wellness_Providers", "UPDATE", code, auth_data.get("username"), old_values, new_values)
             cursor.execute("UPDATE demo_Updated_Wellness_Providers SET STATE=?, PROVIDER_NAME=?, ADDRESS=?, PROVIDER=?, Location=? WHERE CODE=?", 
                 (state, provider_name, address, provider, location, code))
             conn.commit()
+            _log_audit(conn, "demo_Updated_Wellness_Providers", "UPDATE", code, auth_data.get("username"), old_values, new_values)
             cursor.close()
         finally:
             conn.close()
@@ -3109,6 +3125,69 @@ def delete_plans_confirm(delete_clicks, yes_clicks, no_clicks):
 
 
 @callback(
+    Output("plans-change-provider-modal", "is_open"),
+    Output("plans-change-provider-dropdown", "options"),
+    Input("plans-change-provider-btn", "n_clicks"),
+    Input("plans-change-close-btn", "n_clicks"),
+    State("store-q3", "data"),
+    prevent_initial_call=True,
+)
+def open_change_provider_modal(btn_clicks, close_clicks, q3_data):
+    ctx = callback_context
+    if not ctx.triggered:
+        return False, []
+    triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+    if triggered_id == "plans-change-close-btn":
+        return False, []
+    if q3_data:
+        df = pd.DataFrame(q3_data)
+        options = [{"label": p, "value": p} for p in sorted(df['PROVIDER'].dropna().unique())]
+    else:
+        options = []
+    return True, options
+
+
+@callback(
+    Output("plans-change-provider-message", "children"),
+    Input("plans-change-submit-btn", "n_clicks"),
+    State("plans-change-member-id", "value"),
+    State("plans-change-provider-dropdown", "value"),
+    State("plans-change-date-picker", "date"),
+    State("auth-store", "data"),
+    prevent_initial_call=True,
+)
+def update_member_provider(submit_clicks, member_id, new_provider, new_date, auth_data):
+    if not auth_data or not auth_data.get("authenticated"):
+        return ""
+    if auth_data.get("username", "") != "ClientServices" or not submit_clicks or not member_id or not new_provider or not new_date:
+        return dbc.Alert("Please fill in all fields.", color="warning")
+    try:
+        conn = engine.raw_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT selected_provider, selected_date FROM demo_tbl_annual_wellness_enrollee_data WHERE MemberNo = ?", (member_id,))
+            row = cursor.fetchone()
+            if not row:
+                return dbc.Alert("Member not found.", color="danger")
+            old_provider = row[0]
+            old_date = row[1]
+            cursor.execute(
+                "UPDATE demo_tbl_annual_wellness_enrollee_data SET selected_provider = ?, selected_date = ? WHERE MemberNo = ?",
+                (new_provider, new_date, member_id)
+            )
+            _log_audit(conn, "demo_tbl_annual_wellness_enrollee_data", "UPDATE", member_id, auth_data.get("username"),
+                       {"selected_provider": old_provider, "selected_date": str(old_date)},
+                       {"selected_provider": new_provider, "selected_date": new_date})
+            conn.commit()
+        finally:
+            conn.close()
+        invalidate_cache()
+        return dbc.Alert("Provider updated successfully!", color="success")
+    except Exception as e:
+        return dbc.Alert(f"Error updating provider: {e}", color="danger")
+
+
+@callback(
     Output("plans-delete-message", "children"),
     Input("plans-delete-confirm-yes", "n_clicks"),
     State("services-plans-table",  "selected_rows"),
@@ -3203,10 +3282,10 @@ def save_edit_plan(n_clicks, policy_no, client_name, client_plan, customization,
                 "CUSTOMIZATION": customization,
                 "WELLNESS_BENEFITS": wellness_benefits
             }
-            _log_audit(conn, "demo_Wellness_Plans_and_Benefits", "UPDATE", policy_no, auth_data.get("username"), old_values, new_values)
             cursor.execute("UPDATE demo_Wellness_Plans_and_Benefits SET CLIENT_NAME=?, CLIENT_PLAN=?, CUSTOMIZATION=?, WELLNESS_BENEFITS=? WHERE PolicyNo=?", 
                 (client_name, client_plan, customization, wellness_benefits, policy_no))
             conn.commit()
+            _log_audit(conn, "demo_Wellness_Plans_and_Benefits", "UPDATE", policy_no, auth_data.get("username"), old_values, new_values)
             cursor.close()
         finally:
             conn.close()
