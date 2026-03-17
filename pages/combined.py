@@ -116,10 +116,8 @@ query_ps_q3 = (
     "left join [dbo].[tbl_ProviderList_stg] b on a.code = b.code"
 )
 query_ps_q4 = (
-    "SELECT r.* "
-    "FROM demo_tbl_enrollee_wellness_result_data r "
-    "INNER JOIN demo_tbl_annual_wellness_enrollee_data a ON r.memberno = a.memberno "
-    "WHERE r.date_submitted < a.PolicyStartDate OR r.date_submitted > a.PolicyEndDate"
+    "SELECT * FROM demo_tbl_enrollee_wellness_result_data "
+    "WHERE test_result_link IS NOT NULL AND test_result_link <> ''"
 )
 query_ps_q5 = "SELECT * FROM demo_Wellness_Plans_and_Benefits"
 
@@ -1821,8 +1819,9 @@ def update_provider_content(option, q2_data, q4_data, auth_data):
         mask = filled_df['ProviderName'] == pn
 
     pdf = filled_df[mask][['MemberNo', 'MemberName', 'IssuedPACode', 'PA_Tests']].copy()
+    submitted_members = set(result_df['memberno'].astype(str).tolist()) if not result_df.empty else set()
     pdf['SubmissionStatus'] = pdf['MemberNo'].apply(
-        lambda x: 'Submitted' if x in result_df['memberno'].values else 'Not Submitted'
+        lambda x: 'Submitted' if x in submitted_members else 'Not Submitted'
     )
     pdf = pdf.sort_values('SubmissionStatus').reset_index(drop=True)
 
