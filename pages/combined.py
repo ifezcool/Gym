@@ -2142,20 +2142,19 @@ def show_claims_content(member, policy_period, provider, q2_data):
     Input("data-ready-store-ps",   "data"),
     State("auth-store",            "data"),
     State("contact-enrollee-id",   "value"),
-    State("store-q2",  "data"),
     State("store-q3",  "data"),
-    State("store-q4",  "data"),
     prevent_initial_call=False,
 )
-def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q2_data, q3_data, q4_data):
+def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
     if not auth_data or not auth_data.get("authenticated"):
         return ""
     if not auth_data.get("username", "").startswith("contact"):
         return ""
-    if not data_ready or not q2_data:
+    if not data_ready:
         return ""
 
-    filled_df = pd.DataFrame(q2_data)
+    filled_df = cached_read_sql(query_ps_q2)
+    q4_data = cached_read_sql(query_ps_q4).to_dict('records')
     filled_df['MemberNo'] = filled_df['MemberNo'].astype(str)
     filled_df['selected_provider'] = filled_df['selected_provider'].fillna('')
     filled_df['IssuedPACode'] = filled_df['IssuedPACode'].fillna('')
