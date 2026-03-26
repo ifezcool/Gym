@@ -116,6 +116,29 @@ WELLNESS_CSS = """
 
   .avon-topbar-brand:hover { color: var(--purple-600); }
 
+  /* ─── AUTH PILL ─── */
+  .avon-auth-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-full);
+    padding: 4px 6px 4px 14px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--gray-700);
+    white-space: nowrap;
+  }
+
+  .avon-auth-pill .btn {
+    border-radius: 6px !important;
+    font-size: 0.75rem !important;
+    padding: 3px 10px !important;
+    height: auto !important;
+    line-height: 1.5 !important;
+  }
+
   .avon-logo-mark {
     width: 36px;
     height: 36px;

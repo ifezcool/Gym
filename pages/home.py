@@ -6,16 +6,19 @@ import datetime as dt
 
 register_page(__name__, path='/', title='Home')
 
+SHIELD_EMBLEM = Svg(
+    width="18", height="18", viewBox="0 0 24 24",
+    fill="none", stroke="white",
+    style={"strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round"},
+    children=[
+        Path(d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"),
+        Path(d="m9 12 2 2 4-4")
+    ]
+)
+
 topbar = html.Header(className="avon-topbar", children=[
     html.A(className="avon-topbar-brand", href="/", children=[
-        html.Div(className="avon-logo-mark", children=[
-            Svg(width="18", height="18", viewBox="0 0 24 24", fill="none", stroke="white",
-                style={"strokeWidth": "2.5"},
-                children=[
-                    Path(d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"),
-                    Path(d="m9 12 2 2 4-4")
-                ])
-        ]),
+        html.Div(className="avon-logo-mark", children=[SHIELD_EMBLEM]),
         html.Span("AVON HMO")
     ]),
     html.Span("Your Health, Our Priority",
@@ -44,7 +47,7 @@ hero = html.Section(style={
     }),
 
     html.Div(style={"position": "relative", "zIndex": "1"}, children=[
-        html.Div(className="logo-container", style={"marginBottom": "24px"}),
+        html.Div(className="logo-container", style={"marginBottom": "24px"}, children=[SHIELD_EMBLEM]),
 
         html.Span("Member Portal", style={
             "display": "inline-block",

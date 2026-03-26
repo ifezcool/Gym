@@ -24,6 +24,16 @@ from datetime import datetime
 
 register_page(__name__, path='/wellness', title='AVON HMO Wellness Portal')
 
+SHIELD_EMBLEM = Svg(
+    width="18", height="18", viewBox="0 0 24 24",
+    fill="none", stroke="white",
+    style={"strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round"},
+    children=[
+        Path(d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"),
+        Path(d="m9 12 2 2 4-4")
+    ]
+)
+
 # ── Styles ────────────────────────────────────────────────────────────────────
 PURPLE_TABLE_STYLE = {
     "style_header": {
@@ -981,97 +991,147 @@ ps_login_layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100vh"}
     ])
 ])
 
-ps_provider_layout = dbc.Container([
-    dbc.Row([dbc.Col([
-        html.H2("Provider Wellness Result Submission Portal", className="mt-3"),
-    ], width=9),
-    dbc.Col([
-        html.Div([
-            html.Span(id="provider-welcome", className="me-3", style={"fontWeight": "bold", "color": "purple"}),
-            dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
-        ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
-    ], width=3)
+ps_provider_layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100vh"}, children=[
+
+    html.Header(className="avon-topbar", children=[
+        html.Div(style={"display": "flex", "alignItems": "center", "gap": "10px"}, children=[
+            html.Div(className="avon-logo-mark", children=[SHIELD_EMBLEM]),
+            html.Span("AVON HMO", style={"fontWeight": "700", "fontSize": "1rem", "color": "#5B21B6"}),
+        ]),
+        html.Div(className="avon-auth-pill", children=[
+            html.Span(id="provider-welcome"),
+            dbc.Button("Logout", id="logout-btn", size="sm", color="danger",
+                       style={"marginLeft": "12px", "borderRadius": "8px",
+                              "fontSize": "0.8125rem", "padding": "4px 12px"})
+        ])
     ]),
-    dbc.Row([
-        dbc.Col([_nav_card([
-            html.P("Welcome to the Provider Wellness Result Submission Portal"),
-            html.Div([
-                dbc.Button("View Wellness Enrollees and Benefits", id="provider-nav-view-btn", 
-                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px", "marginBottom": "8px"}),
-                dbc.Button("Submit Wellness Results", id="provider-nav-submit-btn",
-                           style={"background": "linear-gradient(135deg, #59058d, #800cbf)", "color": "white", "border": "none", "borderRadius": "5px", "marginBottom": "8px"}),
-            ], style={"display": "flex", "flexWrap": "wrap", "gap": "10px"})
-        ])], width=3),
-        dbc.Col([html.Div(id="provider-content")], width=9)
-    ])
-], fluid=True)
+
+    dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.Div(className="provider-sidebar-card", style={"padding": "20px"}, children=[
+                    html.P("Select an action below:",
+                           style={"color": "#374151", "marginBottom": "16px", "fontSize": "0.875rem"}),
+                    html.Div(style={"display": "flex", "flexDirection": "column", "gap": "8px"}, children=[
+                        dbc.Button("View Wellness Enrollees", id="provider-nav-view-btn",
+                                   className="provider-nav-btn",
+                                   style={"background": "linear-gradient(135deg,#5B21B6,#7C3AED)",
+                                          "color": "white", "border": "none",
+                                          "borderRadius": "8px", "textAlign": "left",
+                                          "padding": "10px 14px", "fontWeight": "500"}),
+                        dbc.Button("Submit Wellness Results", id="provider-nav-submit-btn",
+                                   className="provider-nav-btn",
+                                   style={"background": "linear-gradient(135deg,#5B21B6,#7C3AED)",
+                                          "color": "white", "border": "none",
+                                          "borderRadius": "8px", "textAlign": "left",
+                                          "padding": "10px 14px", "fontWeight": "500"}),
+                    ])
+                ])
+            ], width=3),
+            dbc.Col([html.Div(id="provider-content")], width=9)
+        ], style={"marginTop": "24px"})
+    ], fluid=True, style={"maxWidth": "1400px"})
+])
 
 ps_claims_layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100vh"}, children=[
-    dbc.Container([
-        dbc.Row([dbc.Col([
-            html.H2("Provider Wellness Result Review Portal", style={"color": "#111827", "fontWeight": "700", "fontSize": "1.25rem", "marginTop": "12px"}),
-        ], width=9),
-        dbc.Col([
-            html.Div([
-                html.Span(id="claims-welcome", className="me-3", style={"fontWeight": "600", "color": "#5B21B6"}),
-                dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
-            ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
-        ], width=3)
+
+    html.Header(className="avon-topbar", children=[
+        html.Div(style={"display": "flex", "alignItems": "center", "gap": "10px"}, children=[
+            html.Div(className="avon-logo-mark", children=[SHIELD_EMBLEM]),
+            html.Span("AVON HMO", style={"fontWeight": "700", "fontSize": "1rem", "color": "#5B21B6"}),
         ]),
-        dbc.Row([
-            dbc.Col([html.Div(className="provider-sidebar-card", style={"padding": "20px"}, children=[
-                html.P("Please select a Provider to view Submitted Wellness Results", style={"marginBottom": "16px", "color": "#374151"}),
-                dbc.Label("Select Provider", className="avon-label"),
-                dcc.Dropdown(id="claims-provider-select", placeholder="Select Provider", className="mb-3"),
-                dbc.Label("Select Member", className="avon-label"),
-                dcc.Dropdown(id="claims-member-select", placeholder="Select Member", className="mb-3"),
-                dbc.Label("Select Policy Period", className="avon-label"),
-                dcc.Dropdown(id="claims-policy-period-select", placeholder="Select Policy Period", className="mb-3"),
-            ])], width=3),
-            dbc.Col([html.Div(id="claims-content")], width=9)
+        html.Div(className="avon-auth-pill", children=[
+            html.Span(id="claims-welcome"),
+            dbc.Button("Logout", id="logout-btn", size="sm", color="danger",
+                       style={"marginLeft": "12px", "borderRadius": "8px",
+                              "fontSize": "0.8125rem", "padding": "4px 12px"})
         ])
+    ]),
+
+    dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.Div(className="provider-sidebar-card", style={"padding": "20px"}, children=[
+                    html.P("Select a provider and member to view submitted wellness results.",
+                           style={"color": "#374151", "marginBottom": "16px", "fontSize": "0.875rem"}),
+                    dbc.Label("Select Provider", className="avon-label"),
+                    dcc.Dropdown(id="claims-provider-select", placeholder="Select Provider",
+                                 className="mb-3"),
+                    dbc.Label("Select Member", className="avon-label"),
+                    dcc.Dropdown(id="claims-member-select", placeholder="Select Member",
+                                 className="mb-3"),
+                    dbc.Label("Select Policy Period", className="avon-label"),
+                    dcc.Dropdown(id="claims-policy-period-select", placeholder="Select Policy Period",
+                                 className="mb-3"),
+                ])
+            ], width=3),
+            dbc.Col([html.Div(id="claims-content")], width=9)
+        ], style={"marginTop": "24px"})
     ], fluid=True)
 ])
 
 ps_contact_layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100vh"}, children=[
-    dbc.Container([
-        dbc.Row([dbc.Col([
-            html.H2("Wellness PA Code Authorisation and Results Review Portal", style={"color": "#111827", "fontWeight": "700", "fontSize": "1.25rem", "marginTop": "12px"}),
-        ], width=9),
-        dbc.Col([
-            html.Div([
-                html.Span(id="contact-welcome", className="me-3", style={"fontWeight": "600", "color": "#5B21B6"}),
-                dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
-            ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
-        ], width=3)
+
+    # ── Topbar ──────────────────────────────────────────────────────────────
+    html.Header(className="avon-topbar", children=[
+        html.Div(style={"display": "flex", "alignItems": "center", "gap": "10px"}, children=[
+            html.Div(className="avon-logo-mark", children=[SHIELD_EMBLEM]),
+            html.Span("AVON HMO", style={"fontWeight": "700", "fontSize": "1rem", "color": "#5B21B6"}),
         ]),
-        dbc.Row([
-            dbc.Col([html.Div(className="provider-sidebar-card", style={"padding": "20px"}, children=[
-                html.P("Welcome to the Wellness PA Code Authorisation and Results Review Portal", style={"marginBottom": "16px", "color": "#374151"}),
-                html.P("Kindly input Member ID to check Eligibility and Booking Status:", style={"color": "#5B21B6", "fontWeight": "500", "marginBottom": "12px"}),
-                dbc.Input(id="contact-enrollee-id", type="text", placeholder="Enter Member ID here", className="mb-3"),
-                dbc.Button("Search", id="contact-search-button", className="btn-avon-primary"),
-            ])], width=3),
-            dbc.Col([dcc.Loading(type="circle", color="#5B21B6", children=html.Div(id="contact-content"))], width=9)
+        # Auth pill — right side
+        html.Div(className="avon-auth-pill", children=[
+            html.Span(id="contact-welcome"),
+            dbc.Button("Logout", id="logout-btn", size="sm", color="danger",
+                       style={"marginLeft": "12px", "borderRadius": "8px",
+                              "fontSize": "0.8125rem", "padding": "4px 12px"})
         ])
+    ]),
+
+    # ── Body ────────────────────────────────────────────────────────────────
+    dbc.Container([
+        dbc.Row([
+            # Sidebar
+            dbc.Col([
+                html.Div(className="provider-sidebar-card", style={"padding": "20px"}, children=[
+                    html.P("Kindly input a Member ID to check eligibility and booking status:",
+                           style={"color": "#374151", "marginBottom": "12px", "fontSize": "0.875rem"}),
+                    dbc.Input(id="contact-enrollee-id", type="text",
+                              placeholder="Enter Member ID", className="mb-3"),
+                    dbc.Button("Search", id="contact-search-button",
+                               className="w-100 btn-avon-primary"),
+                ])
+            ], width=3),
+            # Content
+            dbc.Col([
+                dcc.Loading(type="circle", color="#5B21B6",
+                            children=html.Div(id="contact-content"))
+            ], width=9)
+        ], style={"marginTop": "24px"})
     ], fluid=True)
 ])
 
 ps_services_layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100vh"}, children=[
-    dbc.Container([
-        dbc.Row([dbc.Col([
-            html.H2("Wellness Services Management Portal", style={"color": "#111827", "fontWeight": "700", "fontSize": "1.25rem", "marginTop": "12px"}),
-        ], width=9),
-        dbc.Col([
-            html.Div([
-                html.Span(id="services-welcome", className="me-3", style={"fontWeight": "600", "color": "#5B21B6"}),
-                dbc.Button("Logout", id="logout-btn", color="danger", size="sm"),
-            ], className="d-flex align-items-center justify-content-end", style={"marginTop": "20px"}),
-        ], width=3)
+
+    html.Header(className="avon-topbar", children=[
+        html.Div(style={"display": "flex", "alignItems": "center", "gap": "10px"}, children=[
+            html.Div(className="avon-logo-mark", children=[SHIELD_EMBLEM]),
+            html.Span("AVON HMO", style={"fontWeight": "700", "fontSize": "1rem", "color": "#5B21B6"}),
         ]),
-        dbc.Row([
-            dbc.Col([dcc.Loading(type="circle", color="#5B21B6", children=html.Div(id="services-content"))], width=12),
+        html.Div(className="avon-auth-pill", children=[
+            html.Span(id="services-welcome"),
+            dbc.Button("Logout", id="logout-btn", size="sm", color="danger",
+                       style={"marginLeft": "12px", "borderRadius": "8px",
+                              "fontSize": "0.8125rem", "padding": "4px 12px"})
         ])
+    ]),
+
+    dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                dcc.Loading(type="circle", color="#5B21B6",
+                            children=html.Div(id="services-content"))
+            ], width=12)
+        ], style={"marginTop": "24px"})
     ], fluid=True)
 ])
 
@@ -1085,14 +1145,7 @@ def wellness_loading_screen():
         html.Div(className="purple-skew"),
         html.Div(className="green-blob"),
         html.Div([
-            html.Div(className="logo-container mb-4", children=[
-                Svg(width="64", height="64", viewBox="0 0 24 24", fill="none", stroke="white",
-                    style={"strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round"},
-                    children=[
-                        Path(d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"),
-                        Path(d="m9 12 2 2 4-4")
-                    ])
-            ]),
+            html.Div(className="logo-container mb-4", children=[SHIELD_EMBLEM]),
             html.H3("Loading portal data...", className="mb-3", style={"color": "#44337A"}),
             dbc.Spinner(size="lg", color="primary"),
             html.P("Please wait while we load the wellness portal", className="mt-3", style={"color": "#718096"})
@@ -1108,14 +1161,7 @@ def wellness_portal_layout():
         # Sticky topbar
         html.Header(className="avon-topbar", children=[
             html.A(className="avon-topbar-brand", href="/", children=[
-                html.Div(className="avon-logo-mark", children=[
-                    Svg(width="18", height="18", viewBox="0 0 24 24", fill="none", stroke="white",
-                        style={"strokeWidth": "2.5"},
-                        children=[
-                            Path(d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"),
-                            Path(d="m9 12 2 2 4-4")
-                        ])
-                ]),
+                html.Div(className="avon-logo-mark", children=[SHIELD_EMBLEM]),
                 html.Span("AVON HMO")
             ]),
             html.A("⚕ Provider Portal",
@@ -1134,7 +1180,7 @@ def wellness_portal_layout():
             "textAlign": "center",
             "borderBottom": "1px solid #F3F4F6",
         }, children=[
-            html.Div(className="logo-container", style={"marginBottom": "16px"}),
+            html.Div(className="logo-container", style={"marginBottom": "16px"}, children=[SHIELD_EMBLEM]),
             html.Span("Annual Wellness Portal", style={
                 "display": "inline-block", "background": "#EDE9FE", "color": "#5B21B6",
                 "fontSize": "0.75rem", "fontWeight": "600", "letterSpacing": "0.06em",
@@ -1699,27 +1745,16 @@ def render_ps_layout(auth_data):
     if not auth_data or not auth_data.get("authenticated", False):
         return ps_login_layout
 
-    u = auth_data.get("username", "")
-    if u.startswith("234"):
-        title = "Provider Wellness Result Submission Portal"
-    elif u.startswith("claim"):
-        title = "Provider Wellness Result Review Portal"
-    elif u.startswith("contact"):
-        title = "Wellness PA Code Authorisation and Results Review Portal"
-    elif u in ["ClientServices", "MedicalServices"]:
-        title = "Wellness Services Management Portal"
-    else:
-        return ps_login_layout
-
-    return dbc.Container([
-        dbc.Row([dbc.Col([
-            html.Br(), html.Br(),
-            html.H4(title, className="text-center", style={"color": "purple"}),
-            html.Br(),
-            dbc.Spinner(size="lg", color="primary", children=html.Div(style={"height": "60px"})),
-            html.P("Loading portal data, please wait…", className="text-center text-muted mt-3"),
-        ], width={"size": 4, "offset": 4})])
-    ], fluid=True, style={"minHeight": "60vh", "paddingTop": "15vh"})
+    return html.Div(style={
+        "minHeight": "100vh", "background": "#F9FAFB",
+        "display": "flex", "alignItems": "center", "justifyContent": "center",
+        "flexDirection": "column", "textAlign": "center"
+    }, children=[
+        html.Div(className="logo-container", style={"marginBottom": "16px"}, children=[SHIELD_EMBLEM]),
+        html.P("Loading portal, please wait…",
+               style={"color": "#6B7280", "fontSize": "0.9375rem", "marginBottom": "16px"}),
+        dbc.Spinner(size="md", color="primary"),
+    ])
 
 
 @callback(
