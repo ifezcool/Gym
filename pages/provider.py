@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 
 register_page(__name__, path='/wellness/provider', title='AVON HMO Provider Portal')
 
-layout = html.Div([
+layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100vh"}, children=[
     dcc.Location(id='provider-location', refresh=True),
 
     # Auth + data stores (session-persisted so login survives navigation)

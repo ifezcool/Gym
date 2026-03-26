@@ -193,70 +193,39 @@ def get_image_src(image_path):
 # Layout
 layout = html.Div([
     # Back to Home Button
-    html.Div([
-        dcc.Link(
-            dbc.Button(
-                "← Back to Home",
-                style={
-                    'padding': '10px 20px',
-                    'fontSize': '1rem',
-                    'fontWeight': '500',
-                    'borderRadius': '10px',
-                    'background': 'linear-gradient(135deg, #7a6b8a 0%, #5a4470 100%)',
-                    'border': 'none',
-                    'color': '#fff',
-                    'cursor': 'pointer'
-                }
-            ),
-            href="/"
-        )
-    ], style={'padding': '20px'}),
+    html.A("← Back to Home", href="/",
+           style={"color":"#5B21B6","fontWeight":"600","fontSize":"0.875rem",
+                  "textDecoration":"none","display":"inline-block","padding":"20px 24px"}),
     
     # Header Section
-    html.Div([
-        html.Div([
-            html.Img(src=get_image_src('GymPortal.png'), 
-                    style={
-                        'width': '100%', 
-                        'maxWidth': '800px',
-                        'display': 'block',
-                        'margin': '0 auto'
-                    })
-        ], style={'marginBottom': '30px'}),
-        
+    html.Section(className="gym-hero", children=[
         html.H1("AVON HMO Gym Access Portal", 
                style={
                    'textAlign': 'center',
-                   'color': '#5a4470',
-                   'fontSize': '2.5rem',
-                   'fontWeight': '600',
-                   'marginBottom': '10px',
-                   'textShadow': '2px 2px 4px rgba(0,0,0,0.1)'
+                   'color': '#111827',
+                   'fontSize': 'clamp(1.5rem,3vw,2.25rem)',
+                   'fontWeight': '700',
+                   'marginBottom': '10px'
                }),
         html.P("Your gateway to wellness and fitness",
               style={
                   'textAlign': 'center',
-                  'color': '#7a6b8a',
-                  'fontSize': '1.2rem',
+                  'color': '#6B7280',
+                  'fontSize': '1rem',
                   'marginBottom': '30px'
               })
-    ], style={
-        'background': 'linear-gradient(135deg, #e8e0f0 0%, #d4c4e0 100%)',
-        'padding': '40px 20px',
-        'borderRadius': '0 0 30px 30px',
-        'boxShadow': '0 10px 30px rgba(0,0,0,0.1)'
-    }),
+    ]),
     
     # Main Content Area
     html.Div([
         html.Div([
             # Eligibility Check Section
-            html.Div([
+            html.Div(className="gym-eligibility-card", children=[
                 html.H3("Check Your Eligibility", 
                        style={
-                           'color': '#5a4470',
+                           'color': '#111827',
                            'marginBottom': '20px',
-                           'fontSize': '1.8rem',
+                           'fontSize': '1.5rem',
                            'fontWeight': '600'
                        }),
                 html.Div([
@@ -264,37 +233,26 @@ layout = html.Div([
                         id="member-id-input",
                         placeholder="Enter your Member ID",
                         type="text",
-                        style={
-                            'padding': '15px',
-                            'fontSize': '1.1rem',
-                            'borderRadius': '10px',
-                            'border': '2px solid #d4c4e0',
-                            'marginBottom': '20px'
-                        }
+                        className="mb-3"
                     ),
                     dbc.Button(
                         "Check Eligibility",
                         id="check-btn",
                         n_clicks=0,
+                        className="btn-avon-primary",
                         style={
-                            'width': '100%',
-                            'padding': '15px',
-                            'fontSize': '1.2rem',
-                            'fontWeight': '600',
-                            'borderRadius': '12px',
-                            'background': 'linear-gradient(135deg, #9d7cb8 0%, #7a6b8a 100%)',
-                            'border': 'none',
-                            'color': '#fff',
-                            'boxShadow': '0 6px 20px rgba(122, 107, 138, 0.4)',
-                            'transition': 'all 0.3s ease',
-                            'cursor': 'pointer',
-                            'marginBottom': '20px'
+                            'width': '100%', 'height': '44px', 'fontSize': '0.9375rem',
+                            'fontWeight': '600', 'borderRadius': '10px',
+                            'background': 'linear-gradient(135deg, #5B21B6, #7C3AED)',
+                            'border': 'none', 'color': '#fff',
+                            'boxShadow': '0 2px 8px rgba(91,33,182,0.30)',
+                            'cursor': 'pointer', 'transition': 'all 0.18s ease', 'marginBottom': '20px'
                         }
                     ),
                     dcc.Loading(
                         id="loading-eligibility",
-                        type="default",
-                        color="#9d7cb8",
+                        type="circle",
+                        color="#5B21B6",
                         children=html.Div(id='eligibility-result', children=[])
                     ),
                     
@@ -302,13 +260,7 @@ layout = html.Div([
                     html.Div(id='state-selection-container', children=[]),
                     html.Div(id='provider-selection-container', children=[])
                 ])
-            ], style={
-                'backgroundColor': '#fff',
-                'padding': '30px',
-                'borderRadius': '15px',
-                'boxShadow': '0 8px 25px rgba(0,0,0,0.1)',
-                'marginBottom': '30px'
-            }),
+            ]),
             
             # Hidden store for eligibility data
             dcc.Store(id='eligibility-store')
@@ -327,14 +279,16 @@ layout = html.Div([
         html.P("© 2026 AVON HMO - Your Health, Our Priority",
                style={
                    'textAlign': 'center',
-                   'color': '#7a6b8a',
-                   'fontSize': '0.9rem',
-                   'padding': '20px'
+                   'color': '#9CA3AF',
+                   'fontSize': '0.8125rem',
+                   'padding': '24px',
+                   'borderTop': '1px solid #F3F4F6',
+                   'marginTop': '40px'
                })
     ])
     
 ], style={
-    'backgroundColor': '#d4c4e0',
+    'backgroundColor': '#F9FAFB',
     'minHeight': '100vh',
     'fontFamily': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
 })
@@ -394,15 +348,10 @@ def check_eligibility(n_clicks, member_id):
         if df.empty:
             error_msg = html.Div([
                 html.Div([
-                    html.H4("❌ Not Found", style={'color': '#c44569', 'marginBottom': '10px'}),
+                    html.H4("❌ Not Found", style={'color': '#DC2626', 'marginBottom': '10px'}),
                     html.P(f"Member ID '{member_id}' not found in our records.",
-                          style={'color': '#555'})
-                ], style={
-                    'backgroundColor': '#ffe5e5',
-                    'padding': '25px',
-                    'borderRadius': '12px',
-                    'border': '2px solid #ffcccc'
-                })
+                          style={'color': '#374151'})
+                ], className="avon-alert avon-alert-danger")
             ])
             return error_msg, {'is_eligible': False}
         
@@ -434,14 +383,14 @@ def check_eligibility(n_clicks, member_id):
         success_msg = html.Div([
             html.H4("✅ Eligible!", 
                    style={
-                       'color': '#4a9d5f',
+                       'color': '#059669',
                        'marginBottom': '15px',
                        'fontSize': '1.5rem',
                        'fontWeight': '600'
                    }),
             html.P(f"Welcome, {row['Name']}!",
                   style={
-                      'color': '#555',
+                      'color': '#374151',
                       'fontSize': '1.1rem',
                       'marginBottom': '20px',
                       'fontWeight': '500'
@@ -450,26 +399,26 @@ def check_eligibility(n_clicks, member_id):
                 html.P([
                     html.Strong("Client: "),
                     html.Span(row['Client Name'])
-                ], style={'marginBottom': '8px', 'color': '#666'}),
+                ], style={'marginBottom': '8px', 'color': '#6B7280'}),
                 html.P([
                     html.Strong("Access Type: "),
                     html.Span(f"{access_type.title()} - {access_limit} visit(s)")
-                ], style={'marginBottom': '8px', 'color': '#666'}),
+                ], style={'marginBottom': '8px', 'color': '#6B7280'}),
                 html.P([
                     html.Strong("Current Usage: "),
                     html.Span(f"{current_count}/{access_limit}")
-                ], style={'marginBottom': '8px', 'color': '#666'})
+                ], style={'marginBottom': '8px', 'color': '#6B7280'})
             ], style={
-                'background': '#f8f9fa',
+                'background': '#F3F4F6',
                 'padding': '15px',
                 'borderRadius': '8px',
                 'marginTop': '15px'
             })
         ], style={
-            'backgroundColor': '#e8f5e9',
+            'backgroundColor': '#D1FAE5',
             'padding': '25px',
-            'borderRadius': '12px',
-            'border': '2px solid #a5d6a7',
+            'borderRadius': '14px',
+            'border': '2px solid #A7F3D0',
             'marginBottom': '20px'
         })
         
@@ -519,7 +468,7 @@ def show_state_selector(eligibility_data):
             return html.Div([
                 html.H5("Select Your State", 
                        style={
-                           'color': '#5a4470',
+                           'color': '#111827',
                            'marginTop': '30px',
                            'marginBottom': '12px',
                            'fontSize': '1.2rem',
@@ -528,25 +477,13 @@ def show_state_selector(eligibility_data):
                 dbc.Select(
                     id='state-select',
                     options=[{'label': state, 'value': state} for state in state_list],
-                    style={
-                        'padding': '10px',
-                        'fontSize': '1rem',
-                        'borderRadius': '10px',
-                        'border': '2px solid #d4c4e0',
-                        'marginBottom': '20px'
-                    }
+                    className="mb-3"
                 )
-            ], style={
-                'backgroundColor': '#fff',
-                'padding': '25px',
-                'borderRadius': '12px',
-                'boxShadow': '0 4px 15px rgba(0,0,0,0.08)',
-                'marginBottom': '20px'
-            })
+            ], className="avon-card", style={'padding': '24px', 'marginBottom': '20px'})
         except Exception as e:
             return html.Div([
                 html.P(f"Error loading states: {str(e)}", 
-                      style={'color': '#c44569', 'textAlign': 'center'})
+                      style={'color': '#DC2626', 'textAlign': 'center'})
             ])
     
     return ""
@@ -647,16 +584,10 @@ def book_gym_session(n_clicks, selected_provider, selected_state, eligibility_da
     if not is_still_available:
         return html.Div([
             html.Div([
-                html.H4("⚠️ Access Limit Reached", style={'color': '#c44569', 'marginBottom': '15px'}),
+                html.H4("⚠️ Access Limit Reached", style={'color': '#DC2626', 'marginBottom': '15px'}),
                 html.P(f"You have reached your maximum gym access limit.",
-                      style={'color': '#555'})
-            ], style={
-                'backgroundColor': '#ffe5e5',
-                'padding': '25px',
-                'borderRadius': '12px',
-                'border': '2px solid #ffcccc',
-                'marginTop': '20px'
-            })
+                      style={'color': '#374151'})
+            ], className="avon-alert avon-alert-danger", style={'marginTop': '20px'})
         ])
     
     reference_id = generate_unique_reference_id()
@@ -751,14 +682,8 @@ def book_gym_session(n_clicks, selected_provider, selected_state, eligibility_da
     else:
         return html.Div([
             html.Div([
-                html.H4("❌ Booking Failed", style={'color': '#c44569', 'marginBottom': '15px'}),
+                html.H4("❌ Booking Failed", style={'color': '#DC2626', 'marginBottom': '15px'}),
                 html.P("There was an error processing your booking. Please try again.",
-                      style={'color': '#555'})
-            ], style={
-                'backgroundColor': '#ffe5e5',
-                'padding': '25px',
-                'borderRadius': '12px',
-                'border': '2px solid #ffcccc',
-                'marginTop': '20px'
-            })
+                      style={'color': '#374151'})
+            ], className="avon-alert avon-alert-danger", style={'marginTop': '20px'})
         ])
