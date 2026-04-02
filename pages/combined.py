@@ -2353,7 +2353,7 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
             html.Label("Select Policy Year", style={"fontWeight": "bold", "color": "#5B21B6"}),
             dcc.Dropdown(id="contact-policy-year", options=current_year_options, value='current', clearable=False),
             html.Br(),
-            html.H5("Booking Details", style={"color": "purple"}),
+            html.H5("Booking Details", style={"color": "#5B21B6"}),
             html.Table(table_rows, style={'width': '100%', 'borderCollapse': 'collapse'}),
             html.Hr(),
             html.H4("Kindly Update Details of PA Code Issued to Provider for the Enrollee", style={"color": "#5B21B6"}),
