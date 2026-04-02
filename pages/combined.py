@@ -2349,14 +2349,14 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
         )
 
         return html.Div([
-            html.H4(f"Wellness Booking Details for {row['MemberName']}", style={"color": "purple"}),
-            html.Label("Select Policy Year", style={"fontWeight": "bold", "color": "purple"}),
+            html.H4(f"Wellness Booking Details for {row['MemberName']}", style={"color": "#5B21B6"}),
+            html.Label("Select Policy Year", style={"fontWeight": "bold", "color": "#5B21B6"}),
             dcc.Dropdown(id="contact-policy-year", options=current_year_options, value='current', clearable=False),
             html.Br(),
             html.H5("Booking Details", style={"color": "purple"}),
             html.Table(table_rows, style={'width': '100%', 'borderCollapse': 'collapse'}),
             html.Hr(),
-            html.H4("Kindly Update Details of PA Code Issued to Provider for the Enrollee", style={"color": "purple"}),
+            html.H4("Kindly Update Details of PA Code Issued to Provider for the Enrollee", style={"color": "#5B21B6"}),
             dbc.Label("Input the Generated PA Code"),
             dbc.Input(id="contact-pacode", type="text", placeholder="Enter PA Code", value=row.get('IssuedPACode', '')),
             html.Br(),
@@ -2607,7 +2607,7 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
             df = df[df['CLIENT_NAME'].str.contains(client_name_filter, case=False, na=False)]
         
         return html.Div([
-            html.H4("Wellness Plans & Benefits", style={"color": "purple"}),
+            html.H4("Wellness Plans & Benefits", style={"color": "#5B21B6"}),
             html.P(f"Showing {len(df)} plan(s)", style={"color": "gray"}),
             html.Div([
                 html.Div([
@@ -2701,7 +2701,7 @@ def view_providers(view, ready, state_filter, provider_name_filter, plan_type_fi
             df = df[df['PROVIDER_NAME'].str.contains(provider_name_filter, case=False, na=False)]
         
         return html.Div([
-            html.H4("Wellness Providers", style={"color": "purple"}),
+            html.H4("Wellness Providers", style={"color": "#5B21B6"}),
             html.P(f"Showing {len(df)} provider(s)" + (f" in {state_filter}" if state_filter else ""), style={"color": "gray"}),
             html.Div([
                 html.Div([
