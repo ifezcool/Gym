@@ -25,7 +25,7 @@ from datetime import datetime
 register_page(__name__, path='/wellness', title='AVON HMO Wellness Portal')
 
 SHIELD_EMBLEM = Svg(
-    width="18", height="18", viewBox="0 0 24 24",
+    width="30", height="30", viewBox="0 0 24 24",
     fill="none", stroke="white",
     style={"strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round"},
     children=[
@@ -1745,15 +1745,35 @@ def render_ps_layout(auth_data):
     if not auth_data or not auth_data.get("authenticated", False):
         return ps_login_layout
 
+    u = auth_data.get("username", "")
+    if u.startswith("234"):
+        subtitle = "Provider Submission Portal"
+    elif u.startswith("claim"):
+        subtitle = "Results Review Portal"
+    elif u.startswith("contact"):
+        subtitle = "PA Code & Results Portal"
+    elif u in ("ClientServices", "MedicalServices"):
+        subtitle = "Services Management Portal"
+    else:
+        return ps_login_layout
+
     return html.Div(style={
         "minHeight": "100vh", "background": "#F9FAFB",
         "display": "flex", "alignItems": "center", "justifyContent": "center",
-        "flexDirection": "column", "textAlign": "center"
+        "flexDirection": "column", "textAlign": "center", "padding": "40px"
     }, children=[
-        html.Div(className="logo-container", style={"marginBottom": "16px"}, children=[SHIELD_EMBLEM]),
-        html.P("Loading portal, please wait…",
-               style={"color": "#6B7280", "fontSize": "0.9375rem", "marginBottom": "16px"}),
+        html.Div(className="logo-container", style={"marginBottom": "20px"}, children=[SHIELD_EMBLEM]),
+        html.P("AVON HMO", style={
+            "fontWeight": "700", "fontSize": "1.125rem",
+            "color": "#5B21B6", "marginBottom": "4px"
+        }),
+        html.P(subtitle, style={
+            "color": "#6B7280", "fontSize": "0.875rem", "marginBottom": "20px"
+        }),
         dbc.Spinner(size="md", color="primary"),
+        html.P("Loading portal data, please wait…", style={
+            "color": "#9CA3AF", "fontSize": "0.8125rem", "marginTop": "16px"
+        }),
     ])
 
 

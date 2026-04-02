@@ -7,7 +7,7 @@ import datetime as dt
 register_page(__name__, path='/', title='Home')
 
 SHIELD_EMBLEM = Svg(
-    width="18", height="18", viewBox="0 0 24 24",
+    width="30", height="30", viewBox="0 0 24 24",
     fill="none", stroke="white",
     style={"strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round"},
     children=[
