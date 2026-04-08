@@ -129,7 +129,7 @@ query_ps_q2 = (
     "Wellness_benefits, selected_date, selected_session, date_submitted, "
     "IssuedPACode, PA_Tests, PA_Provider, PAIssueDate "
     "FROM demo_tbl_annual_wellness_enrollee_data "
-    "WHERE PolicyEndDate >= DATEADD(MONTH, -3, GETDATE())"
+    "WHERE PolicyEndDate >= DATEADD(MONTH, -24, GETDATE())"
 )
 query_ps_q3 = (
     "select a.*, name as ProviderName "
@@ -2384,7 +2384,10 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
                     }),
                     html.Td(str(values[0]), style={
                         'color': '#111827',
-                        'padding': '10px 14px'
+                        'padding': '10px 14px',
+                        'backgroundColor': bg_color,
+                        'borderBottom': '1px solid #F3F4F6',
+                        'border': '1px solid #F3F4F6'
                     })
                 ], style={'borderBottom': '1px solid #F3F4F6'})
             )
