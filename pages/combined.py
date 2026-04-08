@@ -2139,18 +2139,17 @@ def submit_results(n_clicks, member, pa_code, tests_conducted, test_date,
 
 @callback(
     Output("claims-provider-select", "options"),
-    Input("data-ready-store-ps",     "data"),
-    Input("auth-store",               "data"),
-    State("store-q2",                "data"),
+    Input("data-ready-store-ps",   "data"),
+    State("store-q2",              "data"),
     prevent_initial_call=False,
 )
-def load_claims_providers(ready, auth_data, q2_data):
+def load_claims_providers(ready, q2_data):
     if not ready or not q2_data:
         return []
     df = pd.DataFrame(q2_data)
-    if 'selected_provider' not in df.columns:
+    if 'PA_Provider' not in df.columns:
         return []
-    providers = df['selected_provider'].dropna().unique()
+    providers = df['PA_Provider'].dropna().str.split('-').str[0].str.strip().unique()
     return [{"label": p, "value": p} for p in sorted(providers)]
 
 
@@ -2165,12 +2164,13 @@ def load_claims_members(provider, ready, q2_data):
     if not q2_data:
         return []
     df = pd.DataFrame(q2_data)
-    if 'selected_provider' not in df.columns or 'MemberNo' not in df.columns or 'MemberName' not in df.columns:
+    if 'PA_Provider' not in df.columns or 'MemberNo' not in df.columns or 'MemberName' not in df.columns:
         return []
     df['MemberNo'] = df['MemberNo'].astype(str)
     df['member'] = df['MemberNo'].str.cat(df['MemberName'].astype(str), sep=' - ')
     if provider:
-        filtered = df[df['selected_provider'] == provider]
+        df['PA_Provider_cleaned'] = df['PA_Provider'].str.split('-').str[0].str.strip()
+        filtered = df[df['PA_Provider_cleaned'] == provider]
     else:
         filtered = df
     return [{"label": m, "value": m} for m in filtered['member'].unique()]
@@ -2192,7 +2192,8 @@ def load_claims_policy_periods(member, provider, ready, q2_data):
         return []
     df['MemberNo'] = df['MemberNo'].astype(str)
     if provider:
-        df = df[df['selected_provider'] == provider]
+        df['PA_Provider_cleaned'] = df['PA_Provider'].str.split('-').str[0].str.strip()
+        df = df[df['PA_Provider_cleaned'] == provider]
     if member:
         member_id = member.split(' - ')[0]
         df = df[df['MemberNo'] == member_id]
@@ -2230,15 +2231,16 @@ def show_claims_content(member, policy_period, provider, q2_data):
     df  = pd.DataFrame(q2_data)
     df['MemberNo'] = df['MemberNo'].astype(str)
     df = df[df['MemberNo'] == member_id]
+    df['PolicyStartDate'] = pd.to_datetime(df['PolicyStartDate'], errors='coerce')
+    df['PolicyEndDate'] = pd.to_datetime(df['PolicyEndDate'], errors='coerce')
     if policy_period:
         start_date, end_date = policy_period.split('|')
-        df['PolicyStartDate'] = pd.to_datetime(df['PolicyStartDate'], errors='coerce')
-        df['PolicyEndDate'] = pd.to_datetime(df['PolicyEndDate'], errors='coerce')
         df = df[(df['PolicyStartDate'].dt.strftime('%Y-%m-%d') == start_date) & 
                 (df['PolicyEndDate'].dt.strftime('%Y-%m-%d') == end_date)]
     if df.empty:
         return html.Div("No records found for the selected criteria.", style={"color": "red"})
     row = df.sort_values('date_submitted', ascending=False).iloc[0]
+    actual_provider = row['PA_Provider']
     return html.Div([
         html.H3(f"Test Results for {member}", style={"color": "green"}),
         html.H4(f"Client: {row['Client']}",                                  style={"color": "purple"}),
@@ -2247,7 +2249,7 @@ def show_claims_content(member, policy_period, provider, q2_data):
         html.Hr(),
         html.H4("Results:"),
         display_member_results(conn_str, 'annual-wellness-results',
-                               provider, row['Client'], member_id, row['PolicyEndDate'])
+                               actual_provider, row['Client'], member_id, row['PolicyEndDate'])
     ])
 
 
