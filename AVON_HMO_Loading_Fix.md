@@ -1,24 +1,41 @@
-Issue 1: Provider Dropdown Shows Duplicate Branch Entries
-In load_claims_providers, the options are built directly from df['selected_provider'].dropna().unique() — this is the full provider location string as entered by the enrollee (e.g., "CERBA LANCET - Victoria Island, Lagos" and "CERBA LANCET - Ikeja, Lagos" appear as two separate entries). The claims user wants to look up by provider organisation, not by branch.
-The correct source of truth for provider names is the PA_Provider column in store-q2 (which is demo_tbl_annual_wellness_enrollee_data), not selected_provider. PA_Provider contains the standardised provider name as issued by the contact center when they assign a PA code. This is consistent with how demo_tbl_enrollee_wellness_result_data.providername is stored — it comes from auth_data.get("providername") at submission time, which is the same clean name.
-Fix: In load_claims_providers, change the source column from selected_provider to PA_Provider. Extract only the base name before the dash separator (using the same .str.split('-').str[0].str.strip() pattern already used elsewhere in the file for ProviderName), then deduplicate. This produces a clean list of unique provider organisations without branch noise. The options list should use this cleaned name as both the label and the value.
+Instructions for the MCP-enabled GPT:
+You are an expert Dash/Python developer tasked with debugging and fixing a specific issue in the AVON HMO Portal codebase. Only edit the code in the exact files and sections needed — do not add new files, change unrelated features, or introduce new dependencies.
+Relevant files (in this exact order of priority):
 
-Issue 2: load_claims_members Filters on selected_provider but Dropdown Value is Now from PA_Provider
-Once Issue 1 is fixed and the provider dropdown value becomes the cleaned PA_Provider base name, the load_claims_members callback still filters df[df['selected_provider'] == provider]. This will never match because selected_provider is the full branch string and the dropdown value is now the cleaned provider name.
-Fix: In load_claims_members, when a provider is selected, filter df by checking whether the cleaned version of PA_Provider (i.e., df['PA_Provider'].str.split('-').str[0].str.strip()) equals the selected provider value, instead of filtering on selected_provider.
+Exact problem to investigate and fix (do this investigation first):
+In the contact center view (the view used by contact-centre staff to search enrollee/member records — it is rendered via the functions in combined.py that are called from the provider/wellness portal), searching for certain records returns zero results / empty table.
+The user had already implemented (or believed they had implemented) the same logic that already works perfectly in the claims view:
 
-Issue 3: load_claims_policy_periods Also Filters on selected_provider
-Same misalignment. This callback filters df[df['selected_provider'] == provider] which will break for the same reason once the dropdown value is a cleaned provider name.
-Fix: Apply the same fix as Issue 2 — filter on the cleaned PA_Provider base name rather than selected_provider.
+Default to showing the most recent data (latest policy year).
+Allow the user to select a previous policy year via a dropdown/selector.
+The search/filter then correctly returns matching records from the selected (or default most-recent) policy year.
 
-Issue 4: show_claims_content Uses selected_provider for display_member_results but the Blob Storage Path Uses the Raw Provider Name
-In show_claims_content, display_member_results is called with provider as the first argument (which is now the cleaned PA_Provider base name from the dropdown). Inside display_member_results, the provider is transformed via .replace(" ", "").lower() to build the blob storage path prefix. However the blob path was originally constructed at upload time in submit_results using auth_data.get("providername", "").replace(" ", "").lower() — which is the full providername from the auth store. These need to match.
-Fix: In show_claims_content, rather than passing the dropdown provider value directly to display_member_results, retrieve the actual providername from the matched row (row['PA_Provider'] cleaned to match how it was stored at submission). Use the full PA_Provider value from the matching store-q2 row for the display_member_results call, so the blob path prefix is constructed correctly.
+This logic is missing, broken, or not applied in the contact center view, which is why some records (especially those tied to older policy years or not matching an implicit “current-year-only” filter) turn up nothing.
+Step-by-step actions you must execute perfectly (follow exactly, in order):
 
-Issue 5: show_claims_content Has a Logic Bug — It Only Takes the Most Recently Submitted Row, Ignoring the Policy Period Filter
-After filtering by member ID and optionally by policy period using date matching, the callback does row = df.sort_values('date_submitted', ascending=False).iloc[0]. If a member has submissions across multiple policy years and no policy period is selected, this silently shows only the most recent one. This is fine as a default, but when a specific policy period IS selected, the filtered df should already contain only the correct row, so the .sort_values(...).iloc[0] is redundant but harmless. However, if the date comparison fails due to mixed types (some PolicyStartDate/PolicyEndDate values may be strings vs datetime objects depending on what Pandas infers from store-q2), the filter could silently return an empty dataframe and hit the "No records found" branch even though data exists.
-Fix: In show_claims_content, before the date comparison filter, explicitly convert both df['PolicyStartDate'] and df['PolicyEndDate'] to datetime using pd.to_datetime(..., errors='coerce') and then .dt.strftime('%Y-%m-%d') before comparing to start_date and end_date strings. This is already partially done but needs to happen consistently before any comparison, not after — ensure the conversion happens before the equality check, not inline inside the condition.
+Open pages/combined.py.
+Locate the two main view sections:
+The claims view code (look for any function/callback/layout block containing “claims”, policy-year dropdown, most-recent default logic, data filtering, or table rendering for claims).
+The contact center view code (look for the rendering function called by render_ps_layout / show_ps_portal or any block that builds the contact-centre / enrollee-search UI — it will use similar stores and data callbacks as the claims view).
 
-Issue 6: load_claims_providers Has Input("auth-store", "data") but Never Uses It
-The callback signature includes auth_data as a parameter but the function body never references it. This is harmless but creates an unnecessary dependency that forces the callback to re-fire on every auth change (including initial load when data may not be ready yet), potentially causing the dropdown to populate with an empty list before store-q2 is ready.
-Fix: Remove Input("auth-store", "data") and its corresponding parameter from load_claims_providers. The data-ready-store-ps Input already gates the data correctly — when it becomes True, store-q2 is guaranteed to be populated.
+Compare the data-loading, search/filter callback(s), policy-year handling, and table-display logic between the two views side-by-side.
+Identify the precise root cause (it will be one or more of the following, which you must confirm):
+The contact-center search/filter callback does not read or apply the policy-year selector.
+No policy-year dropdown exists (or it is not wired to the callback) in the contact-center layout.
+The SQL query or pandas filtering in the contact-center path hard-codes or defaults to only the current year instead of the most recent available year.
+The “most recent data” default (sorting by policy year descending or using MAX(policy_year)) is missing or not applied on initial load / before search.
+The data store / DataFrame for contact-center records is not being filtered the same way as claims.
+
+Fix the issue by making the contact-center view’s logic identical to the working claims view for:
+Policy-year selector (dropdown populated dynamically from the available years in the loaded data).
+Default selection = most recent policy year.
+Search/filter callback that respects the selected policy year (or defaults to most recent) and returns matching records.
+Any shared helper functions for data loading or filtering must be reused (do not duplicate code).
+
+Ensure the fix only affects the contact-center view — the claims view and all other portals must remain completely unchanged.
+After editing, the contact-center search must now:
+Return records for the searches that previously returned nothing.
+Default to the most recent policy year on load.
+Allow switching to any previous policy year and instantly update the results.
+
+Verify the change locally (run the Dash app, navigate to the contact-center view, perform the same searches that were failing, and test the policy-year selector).

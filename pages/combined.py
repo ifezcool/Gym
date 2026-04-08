@@ -2138,6 +2138,14 @@ def submit_results(n_clicks, member, pa_code, tests_conducted, test_date,
 
 
 @callback(
+    Output("contact-policy-year-select", "options"),
+    Input("data-ready-store-ps",   "data"),
+    State("store-q2",              "data"),
+    prevent_initial_call=False,
+)
+
+
+@callback(
     Output("claims-provider-select", "options"),
     Input("data-ready-store-ps",   "data"),
     State("store-q2",              "data"),
