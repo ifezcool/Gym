@@ -6,6 +6,8 @@ import datetime as dt
 
 register_page(__name__, path='/', title='Home')
 
+SHOW_GYM_PORTAL = False
+
 SHIELD_EMBLEM = Svg(
     width="30", height="30", viewBox="0 0 24 24",
     fill="none", stroke="white",
@@ -27,27 +29,14 @@ topbar = html.Header(className="avon-topbar", children=[
 
 hero = html.Section(style={
     "background": "linear-gradient(135deg, #F5F3FF 0%, #FFFFFF 60%, #F0FDF4 100%)",
-    "padding": "72px 24px 56px",
+    "padding": "40px 24px 32px",
     "textAlign": "center",
     "position": "relative",
     "overflow": "hidden",
     "borderBottom": "1px solid #F3F4F6",
 }, children=[
-    html.Div(style={
-        "position": "absolute", "top": "-80px", "left": "-80px",
-        "width": "320px", "height": "320px",
-        "background": "radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)",
-        "borderRadius": "50%", "pointerEvents": "none"
-    }),
-    html.Div(style={
-        "position": "absolute", "bottom": "-60px", "right": "-60px",
-        "width": "280px", "height": "280px",
-        "background": "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)",
-        "borderRadius": "50%", "pointerEvents": "none"
-    }),
-
     html.Div(style={"position": "relative", "zIndex": "1"}, children=[
-        html.Div(className="logo-container", style={"marginBottom": "24px"}, children=[SHIELD_EMBLEM]),
+        html.Div(className="logo-container", style={"marginBottom": "14px"}, children=[SHIELD_EMBLEM]),
 
         html.Span("Member Portal", style={
             "display": "inline-block",
@@ -68,7 +57,7 @@ hero = html.Section(style={
             "color": "#111827",
             "marginBottom": "12px",
             "maxWidth": "600px",
-            "margin": "0 auto 12px",
+            "margin": "0 auto 8px",
         }),
 
         html.P("Choose a portal to get started with your health and wellness journey.", style={
@@ -84,10 +73,10 @@ hero = html.Section(style={
 cards_section = html.Section(style={
     "maxWidth": "960px",
     "margin": "0 auto",
-    "padding": "48px 24px 80px",
+    "padding": "24px 24px 40px",
 }, children=[
     dbc.Row([
-        dbc.Col([
+        (dbc.Col([
             html.A(href="/gym-portal", style={"textDecoration": "none"}, children=[
                 html.Div(className="avon-card", style={
                     "padding": "32px",
@@ -108,7 +97,7 @@ cards_section = html.Section(style={
                     }, children=["Go to Gym Portal ", html.Span("→")])
                 ])
             ])
-        ], xs=12, md=6, className="mb-4"),
+        ], xs=12, md=6, className="mb-4") if SHOW_GYM_PORTAL else None),
 
         dbc.Col([
             html.A(href="/wellness", style={"textDecoration": "none"}, children=[
@@ -131,7 +120,28 @@ cards_section = html.Section(style={
                     }, children=["Go to Wellness Portal ", html.Span("→")])
                 ])
             ])
-        ], xs=12, md=6, className="mb-4"),
+        ], xs=12, md=6, className="mb-4") if SHOW_GYM_PORTAL else dbc.Col([
+            html.A(href="/wellness", style={"textDecoration": "none"}, children=[
+                html.Div(className="avon-card", style={
+                    "padding": "32px",
+                    "cursor": "pointer",
+                    "borderTop": "3px solid #059669",
+                }, children=[
+                    html.Div("🧘", style={"fontSize": "2.5rem", "marginBottom": "16px"}),
+                    html.H3("Wellness Portal", style={
+                        "color": "#111827", "fontSize": "1.25rem",
+                        "fontWeight": "700", "marginBottom": "10px"
+                    }),
+                    html.P("Check eligibility, book your annual wellness checkup, and access health resources.",
+                           style={"color": "#6B7280", "fontSize": "0.9375rem",
+                                  "lineHeight": "1.6", "marginBottom": "24px"}),
+                    html.Div(style={
+                        "display": "inline-flex", "alignItems": "center", "gap": "6px",
+                        "color": "#059669", "fontWeight": "600", "fontSize": "0.875rem"
+                    }, children=["Go to Wellness Portal ", html.Span("→")])
+                ])
+            ])
+        ], width={"size": 6, "offset": 3}),
     ])
 ])
 

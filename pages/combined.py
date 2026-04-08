@@ -630,7 +630,7 @@ def build_health_questionnaire():
                     {'label': ' Uncle/Aunty ',     'value': 'Uncle/Aunty'},
                     {'label': ' Nobody ',          'value': 'Nobody'}
                 ],
-                value='Nobody',
+                value=None,
                 inline=True, className="custom-radio"
             )
         ]))
@@ -666,7 +666,7 @@ def build_health_questionnaire():
             dbc.RadioItems(
                 id=f'radio-{qid}',
                 options=[{'label': ' Yes ', 'value': 'Yes'}, {'label': ' No ', 'value': 'No'}],
-                value='No',
+                value=None,
                 inline=True, className="custom-radio"
             )
         ]))
@@ -687,7 +687,7 @@ def build_health_questionnaire():
                     {'label': ' Always ',       'value': 'Always'},
                     {'label': ' I Do Not Know ','value': 'I Do Not Know'}
                 ],
-                value='Never',
+                value=None,
                 inline=True, className="custom-radio"
             )
         ]))
@@ -1028,7 +1028,7 @@ ps_provider_layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100v
                     ])
                 ])
             ], width=3),
-            dbc.Col([html.Div(id="provider-content")], width=9)
+            dbc.Col([html.Div(id="provider-content"), dcc.Store(id="provider-active-view")], width=9)
         ], style={"marginTop": "24px"})
     ], fluid=True, style={"maxWidth": "1400px"})
 ])
@@ -1891,6 +1891,7 @@ def update_services_welcome(d):
 
 @callback(
     Output("provider-content",   "children"),
+    Output("provider-active-view", "data"),
     Input("provider-nav-view-btn",   "n_clicks"),
     Input("provider-nav-submit-btn", "n_clicks"),
     State("store-q2",  "data"),
@@ -1906,7 +1907,7 @@ def update_provider_content(view_clicks, submit_clicks, q2_data, q4_data, auth_d
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
         option = "submit" if triggered_id == "provider-nav-submit-btn" else "view"
     if not auth_data or not q2_data or not auth_data.get("username", "").startswith("234"):
-        return ""
+        return "", None
     filled_df = pd.DataFrame(q2_data)
     filled_df['ProviderName'] = filled_df['PA_Provider'].str.split('-').str[0].str.strip()
     filled_df['MemberNo']     = filled_df['MemberNo'].astype(str)
@@ -1957,7 +1958,7 @@ def update_provider_content(view_clicks, submit_clicks, q2_data, q4_data, auth_d
                 ],
                 style_table={"overflowX": "auto"}, page_size=20,
             )
-        ])
+        ]), option
     else:
         ns = pdf[pdf['SubmissionStatus'] == 'Not Submitted'].copy()
         ns['member'] = ns['MemberNo'].str.cat(ns['MemberName'], sep=' - ')
@@ -1968,7 +1969,7 @@ def update_provider_content(view_clicks, submit_clicks, q2_data, q4_data, auth_d
             dcc.Dropdown(id="member-select", options=ns['member'].unique().tolist(), placeholder="Select Enrollee"),
             html.Br(),
             html.Div(id="submission-form")
-        ])
+        ]), option
 
 
 @callback(
@@ -2010,6 +2011,43 @@ def show_submission_form(member, q2_data):
         dbc.Button("Submit Results", id="submit-results-btn", color="success"),
         html.Div(id="ps-submission-message")
     ])
+
+
+ACTIVE_BTN_STYLE = {
+    "background": "linear-gradient(135deg, #3B0F8C, #5B21B6)",
+    "color": "white",
+    "border": "none",
+    "borderRadius": "8px",
+    "textAlign": "left",
+    "padding": "10px 14px",
+    "fontWeight": "700",
+    "boxShadow": "inset 0 2px 6px rgba(0,0,0,0.2)",
+    "borderLeft": "3px solid #EDE9FE"
+}
+
+INACTIVE_BTN_STYLE = {
+    "background": "linear-gradient(135deg, #5B21B6, #7C3AED)",
+    "color": "white",
+    "border": "none",
+    "borderRadius": "8px",
+    "textAlign": "left",
+    "padding": "10px 14px",
+    "fontWeight": "500"
+}
+
+
+@callback(
+    Output("provider-nav-view-btn",   "style"),
+    Output("provider-nav-submit-btn", "style"),
+    Input("provider-active-view", "data"),
+    prevent_initial_call=False,
+)
+def update_provider_button_styles(active_view):
+    view_active = active_view != "submit"
+    return (
+        ACTIVE_BTN_STYLE if view_active else INACTIVE_BTN_STYLE,
+        INACTIVE_BTN_STYLE if view_active else ACTIVE_BTN_STYLE
+    )
 
 
 @callback(
@@ -2331,10 +2369,25 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
              'CLINIX HEALTHCARE', 'TEEKAY HOSPITAL LIMITED', 'KANEM HOSPITAL AND MATERNITY']
         ))
 
-        table_rows = [
-            html.Tr([html.Td(idx, style={'fontWeight': 'bold'}), html.Td(str(v[0]))])
-            for idx, v in booking.iterrows()
-        ]
+        table_rows = []
+        for idx, (label, values) in enumerate(booking.iterrows()):
+            bg_color = "#FFFFFF" if idx % 2 == 0 else "#F5F3FF"
+            table_rows.append(
+                html.Tr([
+                    html.Td(label, style={
+                        'fontWeight': '600',
+                        'color': '#374151',
+                        'padding': '10px 14px',
+                        'width': '40%',
+                        'backgroundColor': bg_color,
+                        'borderRight': '1px solid #E9D8FD'
+                    }),
+                    html.Td(str(values[0]), style={
+                        'color': '#111827',
+                        'padding': '10px 14px'
+                    })
+                ], style={'borderBottom': '1px solid #F3F4F6'})
+            )
         result_alert = (
             dbc.Alert(
                 f"Wellness Results for {row['MemberName']} done by "
@@ -2354,7 +2407,14 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
             dcc.Dropdown(id="contact-policy-year", options=current_year_options, value='current', clearable=False),
             html.Br(),
             html.H5("Booking Details", style={"color": "#5B21B6"}),
-            html.Table(table_rows, style={'width': '100%', 'borderCollapse': 'collapse'}),
+            html.Table(table_rows, style={
+                'width': '100%',
+                'borderCollapse': 'collapse',
+                'border': '1px solid #E9D8FD',
+                'borderRadius': '10px',
+                'overflow': 'hidden',
+                'fontSize': '0.875rem'
+            }),
             html.Hr(),
             html.H4("Kindly Update Details of PA Code Issued to Provider for the Enrollee", style={"color": "#5B21B6"}),
             dbc.Label("Input the Generated PA Code"),
@@ -3243,16 +3303,18 @@ def update_member_provider(submit_clicks, member_id, new_provider, new_date, aut
         return ""
     if auth_data.get("username", "") != "ClientServices" or not submit_clicks or not member_id or not new_provider or not new_date:
         return dbc.Alert("Please fill in all fields.", color="warning")
+    email_warning = ""
     try:
         conn = engine.raw_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT selected_provider, selected_date FROM demo_tbl_annual_wellness_enrollee_data WHERE MemberNo = ?", (member_id,))
+            cursor.execute("SELECT selected_provider, selected_date, IssuedPACode FROM demo_tbl_annual_wellness_enrollee_data WHERE MemberNo = ?", (member_id,))
             row = cursor.fetchone()
             if not row:
                 return dbc.Alert("Member not found.", color="danger")
             old_provider = row[0]
             old_date = row[1]
+            current_pa_code = row[2] if len(row) > 2 else None
             cursor.execute(
                 "UPDATE demo_tbl_annual_wellness_enrollee_data SET selected_provider = ?, selected_date = ? WHERE MemberNo = ?",
                 (new_provider, new_date, member_id)
@@ -3261,10 +3323,65 @@ def update_member_provider(submit_clicks, member_id, new_provider, new_date, aut
                        {"selected_provider": old_provider, "selected_date": str(old_date)},
                        {"selected_provider": new_provider, "selected_date": new_date})
             conn.commit()
+
+            sender_email = 'noreply@avonhealthcare.com'
+            email_password = os.environ.get('email_password')
+            recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
+
+            pa_code_display = current_pa_code if current_pa_code and str(current_pa_code).strip() else "None issued"
+
+            body = f"""
+            <html>
+            <body>
+            <p>Dear Client Services Team,</p>
+            <p>The wellness provider for the following member has been changed:</p>
+            <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin-top: 10px;">
+                <tr style="background-color: #59058D; color: white;">
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Field</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Details</th>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Member ID</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{member_id}</td>
+                </tr>
+                <tr style="background-color: #f9f9f9;">
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Old Provider</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{old_provider or 'N/A'}</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">New Provider</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{new_provider}</td>
+                </tr>
+                <tr style="background-color: #f9f9f9;">
+                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Current PA Code</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">{pa_code_display}</td>
+                </tr>
+            </table>
+            <p style="margin-top: 15px;"><strong>ACTION REQUIRED:</strong> The existing PA code has been revoked. Please issue a new PA code to the member for the new provider.</p>
+            <p>Regards,<br>Wellness Portal System</p>
+            </body>
+            </html>
+            """
+
+            try:
+                s = smtplib.SMTP('smtp.office365.com', 587)
+                s.starttls()
+                s.login(sender_email, email_password)
+                msg = MIMEMultipart()
+                msg['From'] = 'AVON HMO Wellness Portal'
+                msg['To'] = recipient_email
+                msg['Subject'] = 'WELLNESS PROVIDER CHANGE — PA CODE ACTION REQUIRED'
+                msg.attach(MIMEText(body, 'html'))
+                s.sendmail(sender_email, [recipient_email], msg.as_string())
+                s.quit()
+            except Exception as email_err:
+                email_warning = " (Note: notification email failed to send.)"
+                print(f"Email error: {email_err}")
+
         finally:
             conn.close()
         invalidate_cache()
-        return dbc.Alert("Provider updated successfully!", color="success")
+        return dbc.Alert("Provider updated successfully!" + email_warning, color="success")
     except Exception as e:
         return dbc.Alert(f"Error updating provider: {e}", color="danger")
 
