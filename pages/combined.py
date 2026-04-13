@@ -2445,8 +2445,13 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
             dbc.Label("Select the Date the PA was Issued"),
             dcc.DatePickerSingle(id="contact-pa-issue-date", placeholder="Select Date", date=row.get('PAIssueDate', None)),
             html.Br(),
-            dbc.Button("PROCEED", id="contact-proceed-btn", color="primary"),
+            html.Div([
+                dbc.Button("PROCEED", id="contact-proceed-btn", color="primary"),
+                dbc.Button("Resend Wellness Result", id="contact-resend-result-btn", color="warning", className="ms-2")
+                    if has_result and auth_data.get("username") == "contactcenter_admin" else None,
+            ], style={"display": "flex", "gap": "10px", "alignItems": "center"}),
             html.Div(id="contact-pa-message"),
+            html.Div(id="contact-resend-message"),
             html.Hr(),
             result_alert
         ])
@@ -2573,6 +2578,96 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
             return dbc.Alert(f"PA Code updated but email failed: {msg}", color="warning")
     else:
         return dbc.Alert(f"PA Code successfully updated for the enrollee for policy year {policy_year}.", color="success")
+
+
+@callback(
+    Output("contact-resend-message", "children"),
+    Input("contact-resend-result-btn", "n_clicks"),
+    State("contact-enrollee-id", "value"),
+    State("contact-policy-year", "value"),
+    State("store-q2", "data"),
+    State("store-q4", "data"),
+    State("auth-store", "data"),
+    prevent_initial_call=True,
+)
+def resend_wellness_result(n_clicks, enrollee_id, policy_year, q2_data, q4_data, auth_data):
+    if not auth_data or not auth_data.get("authenticated") or auth_data.get("username") != "contactcenter_admin":
+        return ""
+    if not n_clicks:
+        return ""
+    if not enrollee_id or not q2_data or not q4_data:
+        return dbc.Alert("Missing data. Please search again.", color="danger")
+
+    df = pd.DataFrame(q2_data)
+    df['MemberNo'] = df['MemberNo'].astype(str)
+
+    def get_py_str(row):
+        try:
+            return f"{pd.to_datetime(row['PolicyStartDate']).strftime('%b/%Y')} - {pd.to_datetime(row['PolicyEndDate']).strftime('%b/%Y')}"
+        except:
+            return "Unknown"
+
+    df['policy_year_str'] = df.apply(get_py_str, axis=1)
+    member_df = df[df['MemberNo'] == enrollee_id.strip()]
+
+    if member_df.empty:
+        return dbc.Alert("Enrollee not found.", color="danger")
+
+    if policy_year == 'current':
+        target_df = member_df.sort_values('date_submitted', ascending=False).head(1)
+    else:
+        target_df = member_df[member_df['policy_year_str'] == policy_year]
+
+    if target_df.empty:
+        return dbc.Alert("No booking found for this policy year.", color="danger")
+
+    target_row = target_df.iloc[0]
+
+    recipient_email = target_row.get('email', '')
+    member_name = target_row.get('MemberName', '')
+    provider_name = target_row.get('PA_Provider', '')
+    policy_end_date = target_row['PolicyEndDate']
+
+    result_df = pd.DataFrame(q4_data)
+    result_df['memberno'] = result_df['memberno'].astype(str)
+    res_row = result_df[result_df['memberno'] == enrollee_id.strip()]
+
+    if res_row.empty:
+        return dbc.Alert("No wellness result found for this member in the selected policy period.", color="danger")
+
+    test_date = res_row.iloc[0].get('test_date', '')
+    test_result_link = res_row.iloc[0].get('test_result_link', '')
+
+    if not test_result_link:
+        return dbc.Alert("No result files found in storage for this member. Cannot resend.", color="warning")
+
+    bsc = BlobServiceClient.from_connection_string(conn_str)
+    folder_path = test_result_link.replace(f"https://{bsc.account_name}.blob.core.windows.net/annual-wellness-results/", "")
+
+    uploaded_files = []
+    try:
+        container_client = bsc.get_container_client('annual-wellness-results')
+        blobs = list(container_client.list_blobs(name_starts_with=folder_path))
+        for blob in blobs:
+            blob_client = container_client.get_blob_client(blob=blob.name)
+            file_bytes = blob_client.download_blob().readall()
+            filename = blob.name.split('/')[-1]
+            uploaded_files.append((filename, file_bytes))
+    except Exception as e:
+        return dbc.Alert(f"Error retrieving files: {e}", color="danger")
+
+    if not uploaded_files:
+        return dbc.Alert("No result files found in storage for this member. Cannot resend.", color="warning")
+
+    ok, msg = send_email_with_attachment(
+        recipient_email, member_name, provider_name,
+        test_date, 'AVON HMO ANNUAL TEST RESULTS', uploaded_files
+    )
+
+    if ok:
+        return dbc.Alert(f"Wellness result email successfully resent to {recipient_email}.", color="success")
+    else:
+        return dbc.Alert(f"Failed to resend email: {msg}", color="danger")
 
 
 @callback(
