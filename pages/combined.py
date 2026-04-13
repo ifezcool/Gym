@@ -2585,12 +2585,13 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
     Input("contact-resend-result-btn", "n_clicks"),
     State("contact-enrollee-id", "value"),
     State("contact-policy-year", "value"),
-    State("store-q2", "data"),
-    State("store-q4", "data"),
     State("auth-store", "data"),
     prevent_initial_call=True,
 )
-def resend_wellness_result(n_clicks, enrollee_id, policy_year, q2_data, q4_data, auth_data):
+def resend_wellness_result(n_clicks, enrollee_id, policy_year, auth_data):
+    invalidate_cache()
+    q2_data = cached_read_sql(query_ps_q2).to_dict('records')
+    q4_data = cached_read_sql(query_ps_q4).to_dict('records')
     if not auth_data or not auth_data.get("authenticated") or auth_data.get("username") != "contactcenter_admin":
         return ""
     if not n_clicks:
@@ -2625,7 +2626,6 @@ def resend_wellness_result(n_clicks, enrollee_id, policy_year, q2_data, q4_data,
 
     recipient_email = target_row.get('email', '')
     member_name = target_row.get('MemberName', '')
-    provider_name = target_row.get('PA_Provider', '')
     policy_end_date = target_row['PolicyEndDate']
 
     result_df = pd.DataFrame(q4_data)
@@ -2637,6 +2637,7 @@ def resend_wellness_result(n_clicks, enrollee_id, policy_year, q2_data, q4_data,
 
     test_date = res_row.iloc[0].get('test_date', '')
     test_result_link = res_row.iloc[0].get('test_result_link', '')
+    provider_name = res_row.iloc[0].get('providername', '')
 
     if not test_result_link:
         return dbc.Alert("No result files found in storage for this member. Cannot resend.", color="warning")
