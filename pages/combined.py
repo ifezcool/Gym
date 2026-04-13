@@ -930,7 +930,7 @@ def send_confirmation_email(enrollee_id, member_name, email, provider, benefits,
         bcc_email_list.extend(['ifeoluwa.adeniyi@avonhealthcare.com', 'ifeoluwa.adeniyi@avonhealthcare.com'])
 
     try:
-        srv = smtplib.SMTP('smtp.office365.com', 587)
+        srv = smtplib.SMTP('smtp.office365.com', 587, timeout=15)
         srv.starttls()
         srv.login(myemail, pwd)
         msg = MIMEMultipart()
@@ -2451,7 +2451,7 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
                     if has_result and auth_data.get("username") == "contactcenter_admin" else None,
             ], style={"display": "flex", "gap": "10px", "alignItems": "center"}),
             html.Div(id="contact-pa-message"),
-            html.Div(id="contact-resend-message"),
+            dcc.Loading(type="circle", color="#5B21B6", children=html.Div(id="contact-resend-message")),
             html.Hr(),
             result_alert
         ])
@@ -2586,15 +2586,14 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
     State("contact-enrollee-id", "value"),
     State("contact-policy-year", "value"),
     State("auth-store", "data"),
+    State("store-q2", "data"),
+    State("store-q4", "data"),
     prevent_initial_call=True,
 )
-def resend_wellness_result(n_clicks, enrollee_id, policy_year, auth_data):
-    invalidate_cache()
-    q2_data = cached_read_sql(query_ps_q2).to_dict('records')
-    q4_data = cached_read_sql(query_ps_q4).to_dict('records')
-    if not auth_data or not auth_data.get("authenticated") or auth_data.get("username") != "contactcenter_admin":
-        return ""
+def resend_wellness_result(n_clicks, enrollee_id, policy_year, auth_data, q2_data, q4_data):
     if not n_clicks:
+        return ""
+    if not auth_data or not auth_data.get("authenticated") or auth_data.get("username") != "contactcenter_admin":
         return ""
     if not enrollee_id or not q2_data or not q4_data:
         return dbc.Alert("Missing data. Please search again.", color="danger")
@@ -2646,15 +2645,20 @@ def resend_wellness_result(n_clicks, enrollee_id, policy_year, auth_data):
     folder_path = test_result_link.replace(f"https://{bsc.account_name}.blob.core.windows.net/annual-wellness-results/", "")
 
     uploaded_files = []
+    skipped_files = []
     try:
         container_client = bsc.get_container_client('annual-wellness-results')
         blobs = list(container_client.list_blobs(name_starts_with=folder_path))
         for blob in blobs:
+            if blob.size and blob.size > 10 * 1024 * 1024:
+                skipped_files.append(blob.name.split('/')[-1])
+                continue
             blob_client = container_client.get_blob_client(blob=blob.name)
             file_bytes = blob_client.download_blob().readall()
             filename = blob.name.split('/')[-1]
             uploaded_files.append((filename, file_bytes))
     except Exception as e:
+        print(f"[resend_wellness_result] ERROR: {e}")
         return dbc.Alert(f"Error retrieving files: {e}", color="danger")
 
     if not uploaded_files:
@@ -2666,8 +2670,12 @@ def resend_wellness_result(n_clicks, enrollee_id, policy_year, auth_data):
     )
 
     if ok:
-        return dbc.Alert(f"Wellness result email successfully resent to {recipient_email}.", color="success")
+        msg_prefix = f"Wellness result email successfully resent to {recipient_email}."
+        if skipped_files:
+            msg_prefix += f" Note: {', '.join(skipped_files)} skipped (exceeds 10MB limit)."
+        return dbc.Alert(msg_prefix, color="success")
     else:
+        print(f"[resend_wellness_result] ERROR: {msg}")
         return dbc.Alert(f"Failed to resend email: {msg}", color="danger")
 
 
@@ -3413,85 +3421,88 @@ def update_member_provider(submit_clicks, member_id, new_provider, new_date, aut
     if auth_data.get("username", "") != "ClientServices" or not submit_clicks or not member_id or not new_provider or not new_date:
         return dbc.Alert("Please fill in all fields.", color="warning")
     email_warning = ""
+    conn = None
     try:
         conn = engine.raw_connection()
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT selected_provider, selected_date, IssuedPACode FROM demo_tbl_annual_wellness_enrollee_data WHERE MemberNo = ?", (member_id,))
-            row = cursor.fetchone()
-            if not row:
-                return dbc.Alert("Member not found.", color="danger")
-            old_provider = row[0]
-            old_date = row[1]
-            current_pa_code = row[2] if len(row) > 2 else None
-            cursor.execute(
-                "UPDATE demo_tbl_annual_wellness_enrollee_data SET selected_provider = ?, selected_date = ? WHERE MemberNo = ?",
-                (new_provider, new_date, member_id)
-            )
-            _log_audit(conn, "demo_tbl_annual_wellness_enrollee_data", "UPDATE", member_id, auth_data.get("username"),
-                       {"selected_provider": old_provider, "selected_date": str(old_date)},
-                       {"selected_provider": new_provider, "selected_date": new_date})
-            conn.commit()
-
-            sender_email = 'noreply@avonhealthcare.com'
-            email_password = os.environ.get('email_password')
-            recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
-
-            pa_code_display = current_pa_code if current_pa_code and str(current_pa_code).strip() else "None issued"
-
-            body = f"""
-            <html>
-            <body>
-            <p>Dear Client Services Team,</p>
-            <p>The wellness provider for the following member has been changed:</p>
-            <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin-top: 10px;">
-                <tr style="background-color: #59058D; color: white;">
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Field</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Details</th>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Member ID</td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">{member_id}</td>
-                </tr>
-                <tr style="background-color: #f9f9f9;">
-                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Old Provider</td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">{old_provider or 'N/A'}</td>
-                </tr>
-                <tr>
-                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">New Provider</td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">{new_provider}</td>
-                </tr>
-                <tr style="background-color: #f9f9f9;">
-                    <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Current PA Code</td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">{pa_code_display}</td>
-                </tr>
-            </table>
-            <p style="margin-top: 15px;"><strong>ACTION REQUIRED:</strong> The existing PA code has been revoked. Please issue a new PA code to the member for the new provider.</p>
-            <p>Regards,<br>Wellness Portal System</p>
-            </body>
-            </html>
-            """
-
-            try:
-                s = smtplib.SMTP('smtp.office365.com', 587)
-                s.starttls()
-                s.login(sender_email, email_password)
-                msg = MIMEMultipart()
-                msg['From'] = 'AVON HMO Wellness Portal'
-                msg['To'] = recipient_email
-                msg['Subject'] = 'WELLNESS PROVIDER CHANGE — PA CODE ACTION REQUIRED'
-                msg.attach(MIMEText(body, 'html'))
-                s.sendmail(sender_email, [recipient_email], msg.as_string())
-                s.quit()
-            except Exception as email_err:
-                email_warning = " (Note: notification email failed to send.)"
-                print(f"Email error: {email_err}")
-
-        finally:
+        cursor = conn.cursor()
+        cursor.execute("SELECT selected_provider, selected_date, IssuedPACode FROM demo_tbl_annual_wellness_enrollee_data WHERE MemberNo = ?", (member_id,))
+        row = cursor.fetchone()
+        if not row:
             conn.close()
+            return dbc.Alert("Member not found.", color="danger")
+        old_provider = row[0]
+        old_date = row[1]
+        current_pa_code = row[2] if len(row) > 2 else None
+        cursor.execute(
+            "UPDATE demo_tbl_annual_wellness_enrollee_data SET selected_provider = ?, selected_date = ? WHERE MemberNo = ?",
+            (new_provider, new_date, member_id)
+        )
+        _log_audit(conn, "demo_tbl_annual_wellness_enrollee_data", "UPDATE", member_id, auth_data.get("username"),
+                   {"selected_provider": old_provider, "selected_date": str(old_date)},
+                   {"selected_provider": new_provider, "selected_date": new_date})
+        conn.commit()
+
+        sender_email = 'noreply@avonhealthcare.com'
+        email_password = os.environ.get('email_password')
+        recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
+
+        pa_code_display = current_pa_code if current_pa_code and str(current_pa_code).strip() else "None issued"
+
+        body = f"""
+        <html>
+        <body>
+        <p>Dear Client Services Team,</p>
+        <p>The wellness provider for the following member has been changed:</p>
+        <table style="border-collapse: collapse; width: 100%; max-width: 500px; margin-top: 10px;">
+            <tr style="background-color: #59058D; color: white;">
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Field</th>
+                <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Details</th>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Member ID</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{member_id}</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Old Provider</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{old_provider or 'N/A'}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">New Provider</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{new_provider}</td>
+            </tr>
+            <tr style="background-color: #f9f9f9;">
+                <td style="border: 1px solid #ddd; padding: 8px; font-weight: 600;">Current PA Code</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">{pa_code_display}</td>
+            </tr>
+        </table>
+        <p style="margin-top: 15px;"><strong>ACTION REQUIRED:</strong> The existing PA code has been revoked. Please issue a new PA code to the member for the new provider.</p>
+        <p>Regards,<br>Wellness Portal System</p>
+        </body>
+        </html>
+        """
+
+        try:
+            s = smtplib.SMTP('smtp.office365.com', 587, timeout=15)
+            s.starttls()
+            s.login(sender_email, email_password)
+            msg = MIMEMultipart()
+            msg['From'] = 'AVON HMO Wellness Portal'
+            msg['To'] = recipient_email
+            msg['Subject'] = 'WELLNESS PROVIDER CHANGE — PA CODE ACTION REQUIRED'
+            msg.attach(MIMEText(body, 'html'))
+            s.sendmail(sender_email, [recipient_email], msg.as_string())
+            s.quit()
+        except Exception as email_err:
+            email_warning = " (Note: notification email failed to send.)"
+            print(f"Email error: {email_err}")
+
+        conn.close()
         invalidate_cache()
         return dbc.Alert("Provider updated successfully!" + email_warning, color="success")
+
     except Exception as e:
+        if conn:
+            conn.close()
         return dbc.Alert(f"Error updating provider: {e}", color="danger")
 
 

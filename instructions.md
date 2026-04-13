@@ -1,1 +1,1 @@
-A change had been made to the portal for the contact center admin view, when a member id is searched, to ensure that there was a button that allowed the admin to resend a persons results, just like how they would have been sent when i provider submitted them. While i do see the button there, after taking some time to load, no email was sent, investigate why this could be happening
+hi
