@@ -1718,6 +1718,58 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
             ))
             conn.connection.commit()
 
+        date_submitted_str = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        sender_email   = 'noreply@avonhealthcare.com'
+        email_password = os.environ.get('email_password')
+        recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
+        email_body = f"""
+            Dear Contact Centre,<br><br>
+            The following enrollee has completed their wellness booking and is awaiting a PA Code. Please log into the Contact Centre portal and issue a PA Code for this member.<br><br>
+            <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">
+                <tr>
+                    <th style="background-color: #f2f2f2;">Member ID</th>
+                    <td>{enrollee_id}</td>
+                </tr>
+                <tr>
+                    <th style="background-color: #f2f2f2;">Member Name</th>
+                    <td>{enrollee_data['member_name']}</td>
+                </tr>
+                <tr>
+                    <th style="background-color: #f2f2f2;">Client</th>
+                    <td>{client}</td>
+                </tr>
+                <tr>
+                    <th style="background-color: #f2f2f2;">Selected Provider</th>
+                    <td>{provider}</td>
+                </tr>
+                <tr>
+                    <th style="background-color: #f2f2f2;">Appointment Date</th>
+                    <td>{selected_date_str}</td>
+                </tr>
+                <tr>
+                    <th style="background-color: #f2f2f2;">Wellness Benefits</th>
+                    <td>{benefits}</td>
+                </tr>
+                <tr>
+                    <th style="background-color: #f2f2f2;">Date Submitted</th>
+                    <td>{date_submitted_str}</td>
+                </tr>
+            </table>
+        """
+        try:
+            s = smtplib.SMTP('smtp.office365.com', 587)
+            s.starttls()
+            s.login(sender_email, email_password)
+            msg = MIMEMultipart()
+            msg['From']    = 'AVON HMO Medical Services'
+            msg['To']      = recipient_email
+            msg['Subject'] = f'WELLNESS BOOKING NOTIFICATION — ACTION REQUIRED: {enrollee_id}'
+            msg.attach(MIMEText(email_body, 'html'))
+            s.sendmail(sender_email, [recipient_email], msg.as_string())
+            s.quit()
+        except Exception as e:
+            print(f"Contact centre email error: {e}")
+
         success_msg = dbc.Alert([
             html.H5(f"Thank you {enrollee_data['member_name']}."),
             html.P("Your annual wellness has been successfully booked."),
@@ -2278,6 +2330,7 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
     if not data_ready:
         return ""
 
+    invalidate_cache()
     filled_df = cached_read_sql(query_ps_q2)
     q4_data = cached_read_sql(query_ps_q4).to_dict('records')
     filled_df['MemberNo'] = filled_df['MemberNo'].astype(str)
