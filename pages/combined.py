@@ -383,7 +383,6 @@ def send_pa_code_email(recipient_email, enrollee_name, selected_date, selected_p
                        bcc_email='ifeoluwa.adeniyi@avonhealthcare.com'):
     sender_email   = 'noreply@avonhealthcare.com'
     email_password = os.environ.get('email_password')
-    recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
     body = f"""
         Dear {enrollee_name},<br><br>
         We hope you are staying safe.<br><br>
@@ -2548,6 +2547,7 @@ def update_form_on_policy_year(policy_year, enrollee_id, q2_data):
 
 @callback(
     Output("contact-pa-message",   "children"),
+    Output("store-q2",            "data", allow_duplicate=True),
     Input("contact-proceed-btn",   "n_clicks"),
     State("contact-enrollee-id",   "value"),
     State("contact-policy-year",   "value"),
@@ -2562,12 +2562,12 @@ def update_form_on_policy_year(policy_year, enrollee_id, q2_data):
 def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_provider,
                    pa_issue_date, q2_data, auth_data):
     if not auth_data or not auth_data.get("authenticated"):
-        return ""
+        return "", dash.no_update
     if not auth_data.get("username", "").startswith("contact") or not n_clicks:
-        return ""
+        return "", dash.no_update
     missing = [f for f, v in [('PA Code', pacode), ('Tests Conducted', pa_tests), ('Provider', pa_provider)] if not v]
     if missing:
-        return dbc.Alert(f"Please fill: {', '.join(missing)}", color="danger")
+        return dbc.Alert(f"Please fill: {', '.join(missing)}", color="danger"), dash.no_update
 
     df = pd.DataFrame(q2_data) if q2_data else pd.DataFrame()
     df['MemberNo'] = df['MemberNo'].astype(str)
@@ -2590,7 +2590,7 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
         policy_start = pd.to_datetime(policy_start).to_pydatetime() if not isinstance(policy_start, dt.datetime) else policy_start
         policy_end = pd.to_datetime(policy_end).to_pydatetime() if not isinstance(policy_end, dt.datetime) else policy_end
     except Exception as e:
-        return dbc.Alert(f"Error parsing date: {e}", color="danger")
+        return dbc.Alert(f"Error parsing date: {e}", color="danger"), dash.no_update
     
     conn = engine.raw_connection()
     try:
@@ -2613,6 +2613,7 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
         conn.close()
     
     invalidate_cache()
+    fresh_q2 = cached_read_sql(query_ps_q2).to_dict('records')
 
     if policy_year == 'current':
         ok, msg = send_pa_code_email(
@@ -2621,11 +2622,11 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
             target_row.get('Wellness_benefits', '')
         )
         if ok:
-            return dbc.Alert("PA Code successfully updated for the enrollee. Scheduling email sent.", color="success")
+            return dbc.Alert("PA Code successfully updated for the enrollee. Scheduling email sent.", color="success"), fresh_q2
         else:
-            return dbc.Alert(f"PA Code updated but email failed: {msg}", color="warning")
+            return dbc.Alert(f"PA Code updated but email failed: {msg}", color="warning"), fresh_q2
     else:
-        return dbc.Alert(f"PA Code successfully updated for the enrollee for policy year {policy_year}.", color="success")
+        return dbc.Alert(f"PA Code successfully updated for the enrollee for policy year {policy_year}.", color="success"), fresh_q2
 
 
 @callback(
