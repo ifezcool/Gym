@@ -2488,7 +2488,7 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
             html.Br(),
             dbc.Label("Select the Tests Conducted"),
             dcc.Dropdown(id="contact-pa-tests", options=PA_TESTS_OPTIONS, multi=True,
-                         value=row.get('PA_Tests', '').split(',') if row.get('PA_Tests') else []),
+                         value=[t.strip() for t in str(row.get('PA_Tests', '') or '').split(',') if t.strip()]),
             html.Br(),
             dbc.Label("Select the Wellness Provider"),
             dcc.Dropdown(id="contact-pa-provider",
@@ -2542,7 +2542,7 @@ def update_form_on_policy_year(policy_year, enrollee_id, q2_data):
         return "", [], "", None
 
     row = target_df.iloc[0]
-    pa_tests_value = [t.strip() for t in row.get('PA_Tests', '').split(',') if t.strip()] if row.get('PA_Tests') else []
+    pa_tests_value = [t.strip() for t in str(row.get('PA_Tests', '') or '').split(',') if t.strip()]
     return (row.get('IssuedPACode', ''), pa_tests_value, row.get('PA_Provider', ''), row.get('PAIssueDate', None))
 
 
