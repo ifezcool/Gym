@@ -18,9 +18,11 @@ import base64
 import threading
 import urllib.parse
 import json
+import io
+import zipfile
 from dotenv import load_dotenv
-from azure.storage.blob import BlobServiceClient
-from datetime import datetime
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from datetime import datetime, timedelta
 
 register_page(__name__, path='/wellness', title='AVON HMO Wellness Portal')
 
@@ -193,6 +195,7 @@ wellness_df        = None
 wellness_providers = None
 loyalty_enrollees  = None
 filled_wellness_df = None
+_wellness_data_ready = threading.Event()
 
 
 def load_all_data():
@@ -213,6 +216,7 @@ def load_all_data():
     filled_wellness_df['MemberNo'] = filled_wellness_df['MemberNo'].astype(str)
     loyalty_enrollees['MemberNo']  = loyalty_enrollees['MemberNo'].astype(str)
     print("[ALL COMPLETE] All startup data loaded successfully!")
+    _wellness_data_ready.set()
 
 
 def _prewarm_wellness():
@@ -318,6 +322,106 @@ def display_member_results(conn_str_val, container_name, selected_provider,
         return html.Div(links) if links else html.Div("No test results found.", style={'color': 'orange'})
     except Exception as e:
         return html.Div(f"Error: {e}", style={'color': 'red'})
+
+
+def list_member_results_by_period(conn_str_val, container_name, member_rows, member_no):
+    try:
+        result_dict = {}
+        bsc = BlobServiceClient.from_connection_string(conn_str_val)
+        cc = bsc.get_container_client(container_name)
+        
+        for row in member_rows:
+            pa_provider = row.get('PA_Provider')
+            if pa_provider is None or (isinstance(pa_provider, float) and pd.isna(pa_provider)) or (isinstance(pa_provider, str) and not pa_provider.strip()):
+                continue
+            
+            norm_provider = str(pa_provider).replace(" ", "").lower()
+            client = row.get('Client', '')
+            norm_client = str(client).replace(" ", "").lower() if client else ''
+            
+            policy_end = row.get('PolicyEndDate')
+            if policy_end:
+                if hasattr(policy_end, 'strftime'):
+                    policy_end_str = policy_end.strftime('%Y-%m-%d')
+                else:
+                    policy_end_str = str(policy_end)
+            else:
+                continue
+            
+            prefix = f"{norm_provider}/{norm_client}/{policy_end_str}/{member_no}"
+            
+            blobs = list(cc.list_blobs(name_starts_with=prefix))
+            
+            policy_start = row.get('PolicyStartDate')
+            try:
+                if policy_start:
+                    start_dt = pd.to_datetime(policy_start)
+                    end_dt = pd.to_datetime(policy_end)
+                    period_label = f"{start_dt.strftime('%b/%Y')} - {end_dt.strftime('%b/%Y')}"
+                else:
+                    end_dt = pd.to_datetime(policy_end)
+                    period_label = str(end_dt.year)
+            except:
+                period_label = str(policy_end)
+            
+            if period_label not in result_dict:
+                result_dict[period_label] = []
+            
+            for blob in blobs:
+                result_dict[period_label].append({
+                    "blob_name": blob.name,
+                    "filename": blob.name.split("/")[-1]
+                })
+        
+        return result_dict
+    except Exception as e:
+        return {}
+
+
+def generate_sas_url(conn_str_val, container_name, blob_name, expiry_hours=1):
+    try:
+        import re
+        account_name_match = re.search(r'AccountName=([^;]+)', conn_str_val)
+        account_key_match = re.search(r'AccountKey=([^;]+)', conn_str_val)
+        
+        if not account_name_match or not account_key_match:
+            return None
+        
+        account_name = account_name_match.group(1)
+        account_key = account_key_match.group(1)
+        
+        sas_token = generate_blob_sas(
+            account_name=account_name,
+            container_name=container_name,
+            blob_name=blob_name,
+            account_key=account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.utcnow() + timedelta(hours=expiry_hours)
+        )
+        
+        return f"https://{account_name}.blob.core.windows.net/{container_name}/{blob_name}?{sas_token}"
+    except Exception as e:
+        return None
+
+
+def zip_blobs_to_bytes(conn_str_val, container_name, blob_names):
+    try:
+        bsc = BlobServiceClient.from_connection_string(conn_str_val)
+        cc = bsc.get_container_client(container_name)
+        
+        buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for blob_name in blob_names:
+                blob_client = cc.get_blob_client(blob_name)
+                blob_bytes = blob_client.download_blob().readall()
+                archive_name = blob_name.split("/")[-1]
+                zf.writestr(archive_name, blob_bytes)
+        
+        buffer.seek(0)
+        return buffer.read()
+    except Exception as e:
+        return None
 
 
 def send_email_with_attachment(recipient_email, enrollee_name, provider_name,
@@ -1103,7 +1207,8 @@ ps_contact_layout = html.Div(style={"background": "#F9FAFB", "minHeight": "100vh
             # Content
             dbc.Col([
                 dcc.Loading(type="circle", color="#5B21B6",
-                            children=html.Div(id="contact-content"))
+                            children=html.Div(id="contact-content")),
+                dcc.Download(id="contact-download")
             ], width=9)
         ], style={"marginTop": "24px"})
     ], fluid=True)
@@ -1295,9 +1400,7 @@ def route_wellness_page(wellness_ready):
     prevent_initial_call=False
 )
 def check_wellness_data_loaded(n):
-    if filled_wellness_df is not None and loyalty_enrollees is not None and wellness_providers is not None and wellness_df is not None:
-        return True
-    return False
+    return _wellness_data_ready.is_set()
 
 
 # =============================================================================
@@ -2500,7 +2603,24 @@ def search_enrollee(n_clicks, data_ready, auth_data, enrollee_id, q3_data):
             dbc.Button("PROCEED", id="contact-proceed-btn", color="primary"),
             html.Div(id="contact-pa-message"),
             html.Hr(),
-            result_alert
+            result_alert,
+            html.Hr(),
+            html.H4("Submitted Wellness Results", style={"color": "#5B21B6"}),
+            dcc.Dropdown(
+                id="contact-results-period-filter",
+                options=[{'label': 'All Periods', 'value': 'all'}] + [
+                    {'label': period, 'value': period} 
+                    for period in list_member_results_by_period(
+                        conn_str, 'annual-wellness-results', 
+                        member_df.to_dict('records'), enrollee_id
+                    ).keys()
+                ],
+                value="all",
+                clearable=False
+            ),
+            html.Div(id="contact-results-list"),
+            dbc.Button("Download All Results (ZIP)", id="contact-download-all-btn", color="primary", style={"marginTop": "10px"}),
+            html.Div(id="contact-download-msg")
         ])
 
     return dbc.Alert("Invalid Member ID or Enrollee not eligible for Wellness Test.", color="danger")
@@ -2627,6 +2747,131 @@ def update_pa_code(n_clicks, enrollee_id, policy_year, pacode, pa_tests, pa_prov
             return dbc.Alert(f"PA Code updated but email failed: {msg}", color="warning"), fresh_q2
     else:
         return dbc.Alert(f"PA Code successfully updated for the enrollee for policy year {policy_year}.", color="success"), fresh_q2
+
+
+@callback(
+    Output("contact-results-list", "children"),
+    Input("contact-results-period-filter", "value"),
+    State("contact-enrollee-id", "value"),
+    State("store-q2", "data"),
+    State("auth-store", "data"),
+    prevent_initial_call=True,
+)
+def list_enrollee_results(period_filter, enrollee_id, q2_data, auth_data):
+    if not auth_data or not auth_data.get("authenticated"):
+        return ""
+    if not auth_data.get("username", "").startswith("contact"):
+        return ""
+    if not enrollee_id or not q2_data or not period_filter:
+        return ""
+    
+    df = pd.DataFrame(q2_data)
+    df['MemberNo'] = df['MemberNo'].astype(str)
+    member_df = df[df['MemberNo'] == enrollee_id]
+    
+    if member_df.empty:
+        return ""
+    
+    member_rows = member_df.to_dict('records')
+    results_dict = list_member_results_by_period(conn_str, 'annual-wellness-results', member_rows, enrollee_id)
+    
+    if not results_dict:
+        return dbc.Alert("No results were found.", color="warning")
+    
+    if period_filter == "all":
+        periods_to_show = results_dict.keys()
+    else:
+        periods_to_show = [period_filter] if period_filter in results_dict else []
+    
+    output_elements = []
+    for period in periods_to_show:
+        blobs = results_dict.get(period, [])
+        output_elements.append(html.H6(period, style={"color": "#5B21B6", "marginTop": "10px"}))
+        
+        if not blobs:
+            output_elements.append(html.Div(f"No files for {period}", style={"color": "#6B7280", "fontSize": "0.875rem"}))
+        else:
+            table_rows = []
+            for blob in blobs:
+                filename = blob.get('filename', '')
+                blob_name = blob.get('blob_name', '')
+                sas_url = generate_sas_url(conn_str, 'annual-wellness-results', blob_name)
+                
+                download_cell = (
+                    html.A("Download", href=sas_url, target="_blank") 
+                    if sas_url else 
+                    html.Span("Unavailable", style={"color": "#6B7280"})
+                )
+                
+                table_rows.append(html.Tr([
+                    html.Td(filename),
+                    html.Td(period),
+                    html.Td(download_cell)
+                ]))
+            
+            output_elements.append(dbc.Table(
+                [
+                    html.Thead(html.Tr([
+                        html.Th("Filename"), html.Th("Policy Period"), html.Th("Download")
+                    ]))
+                ] + [html.Tbody(table_rows)],
+                striped=True, bordered=True, hover=True
+            ))
+    
+    return html.Div(output_elements)
+
+
+@callback(
+    Output("contact-download", "data"),
+    Output("contact-download-msg", "children"),
+    Input("contact-download-all-btn", "n_clicks"),
+    State("contact-results-period-filter", "value"),
+    State("contact-enrollee-id", "value"),
+    State("store-q2", "data"),
+    State("auth-store", "data"),
+    prevent_initial_call=True,
+)
+def download_all_results(n_clicks, period_filter, enrollee_id, q2_data, auth_data):
+    if not auth_data or not auth_data.get("authenticated"):
+        return dash.no_update, ""
+    if not auth_data.get("username", "").startswith("contact"):
+        return dash.no_update, ""
+    if not n_clicks:
+        return dash.no_update, ""
+    
+    df = pd.DataFrame(q2_data)
+    df['MemberNo'] = df['MemberNo'].astype(str)
+    member_df = df[df['MemberNo'] == enrollee_id]
+    
+    if member_df.empty:
+        return dash.no_update, ""
+    
+    member_rows = member_df.to_dict('records')
+    results_dict = list_member_results_by_period(conn_str, 'annual-wellness-results', member_rows, enrollee_id)
+    
+    if not results_dict:
+        return dash.no_update, dbc.Alert("No files to download.", color="warning")
+    
+    if period_filter == "all":
+        all_blobs = []
+        for period_blobs in results_dict.values():
+            all_blobs.extend(period_blobs)
+        blob_names = [b['blob_name'] for b in all_blobs]
+    else:
+        blob_names = [b['blob_name'] for b in results_dict.get(period_filter, [])]
+    
+    if not blob_names:
+        return dash.no_update, dbc.Alert("No files to download.", color="warning")
+    
+    if len(blob_names) > 20:
+        return dash.no_update, dbc.Alert("Download is too large. Please filter by a specific policy period.", color="danger")
+    
+    zip_bytes = zip_blobs_to_bytes(conn_str, 'annual-wellness-results', blob_names)
+    
+    if zip_bytes is None:
+        return dash.no_update, dbc.Alert("The ZIP could not be created.", color="danger")
+    
+    return dcc.send_bytes(zip_bytes, f"{enrollee_id}_wellness_results.zip"), ""
 
 
 @callback(
