@@ -1786,31 +1786,45 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
         cursor = conn.cursor()
         try:
             insert_query1 = """
-            INSERT INTO [dbo].[Member_Health_Assessment] (MemberNo, MemberName, Client, Policy, PolicyStartDate, PolicyEndDate, email, mobile_num, job_type, Age, State, Selected_Provider, sex, wellness_benefits, selected_date, selected_session, FamilyHistoryConditions, CurrentMedicalConditions, PastSurgeries, AvoidHighFatFoods, EatsVegetablesAndFruits, DrinksWaterDaily, AvoidsAlcohol, AvoidsTobacco, ExercisesRegularly, MaintainsHealthyWeight, SleepsMoreThan6Hours, BloodPressureNormal, CholesterolNormal, EnjoysWorkAndLife, HasSocialSupport, FeelsDepressedOrTired, HasSleepTrouble, HasConcentrationTrouble, HasSelfHarmThoughts, date_submitted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO [dbo].[Member_Health_Assessment]
+            (MemberNo, MemberName, Client, Policy, PolicyStartDate, PolicyEndDate,
+            email, mobile_num, job_type, Age, State, Selected_Provider, sex, wellness_benefits,
+            selected_date, selected_session,
+            FamilyHistoryConditions, CurrentMedicalConditions, PastSurgeries,
+            AvoidHighFatFoods, EatsVegetablesAndFruits, DrinksWaterDaily, AvoidsAlcohol, AvoidsTobacco,
+            ExercisesRegularly, MaintainsHealthyWeight, SleepsMoreThan6Hours,
+            BloodPressureNormal, CholesterolNormal,
+            EnjoysWorkAndLife, HasSocialSupport, FeelsDepressedOrTired,
+            HasSleepTrouble, HasConcentrationTrouble, HasSelfHarmThoughts,
+            date_submitted)
+            OUTPUT INSERTED.ID
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.execute(insert_query1, (
                 enrollee_id, enrollee_data['member_name'], client, policy,
-                enrollee_data['policystart'], enrollee_data['policyend'], email, mobile, job_type,
-                age, state, provider, member_gender, benefits,
+                enrollee_data['policystart'], enrollee_data['policyend'],
+                email, mobile, job_type, age, state, provider, member_gender, benefits,
                 None if date_communicated else selected_date_str, session,
                 family_history_conditions, current_medical_conditions, past_surgeries,
                 q_avoid_fat, q_eats_veg, q_drinks_water, q_avoids_alcohol, q_avoids_tobacco,
                 q_exercises, q_weight, q_sleep_hours,
                 q_blood_pressure, q_cholesterol,
-                q_enjoys_work, q_social_support, q_feels_depressed, q_sleep_trouble,
-                q_concentration, q_self_harm, date_submitted
+                q_enjoys_work, q_social_support, q_feels_depressed,
+                q_sleep_trouble, q_concentration, q_self_harm,
+                date_submitted
             ))
 
-            cursor.execute("SELECT SCOPE_IDENTITY()")
-            result = cursor.fetchone()
-            assessment_id = result[0] if result else None
+            row = cursor.fetchone()
+            assessment_id = row[0] if row else None
+
+            if assessment_id is None:
+                raise ValueError("Failed to retrieve inserted ID from Member_Health_Assessment.")
 
             booking_reference = f"WB-{dt.datetime.now().strftime('%Y%m%d')}-{str(assessment_id).zfill(5)}"
 
             insert_query2 = """
             INSERT INTO [dbo].[wellness_booking_details] (AssessmentID, MemberNo, MemberName, Client, Policy, PolicyStartDate, PolicyEndDate, email, mobile_num, job_type, Age, State, Selected_Provider, sex, wellness_benefits, selected_date, selected_session, date_submitted, booking_status, booking_reference)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.execute(insert_query2, (
                 assessment_id, enrollee_id, enrollee_data['member_name'], client, policy,
