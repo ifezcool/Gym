@@ -264,14 +264,6 @@ initial_user_data = {
     'selected_provider': 'ROSEVINE HOSPITAL  -  73 ABA OWERRI ROAD, ABA',
     'job_type': 'Mainly Desk Work', 'gender': 'Male',
 }
-for i in list('abcdefghijk'):
-    initial_user_data[f'resp_1_{i}'] = 'Grand Parent(s)'
-for i in list('abcdefghi'):
-    initial_user_data[f'resp_2_{i}'] = 'Yes'
-for i in list('abcdef'):
-    initial_user_data[f'resp_3_{i}'] = 'Yes'
-for i in list('abcdefghijklmnopqrst'):
-    initial_user_data[f'resp_4_{i}'] = 'Never'
 
 data_loaded = False
 
@@ -661,139 +653,137 @@ def get_providers_for_client_state(client, state, enrollee_id=None):
 
 
 def build_health_questionnaire():
-    family_questions = [
-        ('a. HYPERTENSION (HIGH BLOOD PRESSURE)', 'resp_1_a'),
-        ('b. DIABETES',                           'resp_1_b'),
-        ('c. CANCER (ANY TYPE)',                  'resp_1_c'),
-        ('d. ASTHMA',                             'resp_1_d'),
-        ('e. ARTHRITIS',                          'resp_1_e'),
-        ('f. HIGH CHOLESTEROL',                   'resp_1_f'),
-        ('g. HEART ATTACK',                       'resp_1_g'),
-        ('h. EPILEPSY',                           'resp_1_h'),
-        ('i. TUBERCLOSIS',                        'resp_1_i'),
-        ('j. SUBSTANCE DEPENDENCY',               'resp_1_j'),
-        ('k. MENTAL ILLNESS',                     'resp_1_k'),
+    family_options = [
+        {'label': v, 'value': v} for v in [
+            'HYPERTENSION (HIGH BLOOD PRESSURE)', 'DIABETES', 'CANCER (ANY TYPE)', 'ASTHMA',
+            'ARTHRITIS', 'HIGH CHOLESTEROL', 'HEART ATTACK', 'EPILEPSY', 'STROKE', 'MENTAL ILLNESS'
+        ]
     ]
-    personal_questions = [
-        ('i. HYPERTENSION (HIGH BLOOD PRESSURE)', 'resp_2_a'),
-        ('ii. DIABETES',                          'resp_2_b'),
-        ('iii. CANCER (ANY TYPE)',                'resp_2_c'),
-        ('iv. ASTHMA',                            'resp_2_d'),
-        ('v. ULCER',                              'resp_2_e'),
-        ('vi. POOR VISION',                       'resp_2_f'),
-        ('vii. ALLERGY',                          'resp_2_g'),
-        ('viii. ARTHRITIS/LOW BACK PAIN',         'resp_2_h'),
-        ('ix. ANXIETY/DEPRESSION',                'resp_2_i'),
+    current_options = [
+        {'label': v, 'value': v} for v in [
+            'HYPERTENSION (HIGH BLOOD PRESSURE)', 'DIABETES', 'CANCER (ANY TYPE)', 'ASTHMA',
+            'PEPTIC ULCER DISEASE', 'GLAUCOMA', 'ALLERGY', 'ARTHRITIS/LOW BACK PAIN', 'ANXIETY/DEPRESSION'
+        ]
     ]
-    surgical_questions = [
-        ('i. CEASAREAN SECTION', 'resp_3_a'),
-        ('ii. FRACTURE REPAIR',  'resp_3_b'),
-        ('iii. HERNIA',          'resp_3_c'),
-        ('iv. LUMP REMOVAL',     'resp_3_d'),
-        ('v. APPENDICETOMY',     'resp_3_e'),
-        ('vi. SPINE SURGERY',    'resp_3_f'),
+    surgery_types = [
+        ('CAESAREAN SECTION', 'q-surg-caesarean', 'q-surg-caesarean-year'),
+        ('FRACTURE REPAIR', 'q-surg-fracture', 'q-surg-fracture-year'),
+        ('HERNIA', 'q-surg-hernia', 'q-surg-hernia-year'),
+        ('LUMP REMOVAL', 'q-surg-lump', 'q-surg-lump-year'),
+        ('APPENDICECTOMY', 'q-surg-appendix', 'q-surg-appendix-year'),
+        ('SPINE SURGERY', 'q-surg-spine', 'q-surg-spine-year'),
     ]
-    wellness_questions = [
-        ('a. I avoid eating foods that are high in fat',                                                         'resp_4_a'),
-        ('b. I have been avoiding the use or minimise my exposure to alcohol',                                   'resp_4_b'),
-        ('c. I have been avoiding the use of tobacco products',                                                  'resp_4_c'),
-        ('d. I am physically fit and exercise at least 30 minutes every day',                                    'resp_4_d'),
-        ('e. I have been eating vegetables and fruits at least 3 times weekly',                                  'resp_4_e'),
-        ('f. I drink 6-8 glasses of water a day',                                                               'resp_4_f'),
-        ('g. I maintain my weight within the recommendation for my weight, age and height',                     'resp_4_g'),
-        ('h. My blood pressure is within normal range without the use of drugs',                                'resp_4_h'),
-        ('i. My cholesterol level is within the normal range',                                                  'resp_4_i'),
-        ('j. I easily make decisions without worry',                                                            'resp_4_j'),
-        ('k. I enjoy more than 5 hours of sleep at night',                                                      'resp_4_k'),
-        ('l. I enjoy my work and life',                                                                         'resp_4_l'),
-        ('m. I enjoy the support from friends and family',                                                      'resp_4_m'),
-        ('n. I feel bad about myself or that I am a failure or have let myself or my family down',              'resp_4_n'),
-        ('o. I have poor appetite or I am over-eating',                                                         'resp_4_o'),
-        ('p. I feel down, depressed, hopeless, tired or have little energy',                                    'resp_4_p'),
-        ('q. I have trouble falling asleep, staying asleep, or sleeping too much',                              'resp_4_q'),
-        ('r. I have no interest or pleasure in doing things',                                                   'resp_4_r'),
-        ('s. I have trouble concentrating on things, such as reading the newspaper, or watching TV',            'resp_4_s'),
-        ('t. I think I would be better off dead or better off hurting myself in some way',                      'resp_4_t'),
+    matrix_options = [
+        {'label': '', 'value': 'Never'},
+        {'label': '', 'value': 'Occasionally'},
+        {'label': '', 'value': 'Always'},
+        {'label': '', 'value': 'I Do Not Know'}
     ]
+    food_nutrition_questions = [
+        ('I avoid eating foods that are high in fat', 'q-avoid-fat'),
+        ('I eat vegetables and fruits regularly', 'q-eats-veg'),
+        ('I drink 6–8 glasses of water a day', 'q-drinks-water'),
+        ('I avoid the use or minimise my exposure to alcohol', 'q-avoids-alcohol'),
+        ('I avoid the use of tobacco products', 'q-avoids-tobacco'),
+    ]
+    physical_activity_questions = [
+        ('I am physically fit and exercise at least 30 minutes regularly', 'q-exercises'),
+        ('I maintain my weight within the recommendation for my weight, age and height', 'q-weight'),
+        ('I enjoy more than 6 hours of sleep at night', 'q-sleep-hours'),
+    ]
+    preventive_checks_questions = [
+        ('My blood pressure is within normal range without the use of drugs', 'q-blood-pressure'),
+        ('My cholesterol level is within the normal range', 'q-cholesterol'),
+    ]
+    mental_health_questions = [
+        ('I enjoy my work and life', 'q-enjoys-work'),
+        ('I enjoy the support from friends and family', 'q-social-support'),
+        ('I feel down, depressed, hopeless, tired or have little energy', 'q-feels-depressed'),
+        ('I have trouble falling asleep, staying asleep, or sleeping too much', 'q-sleep-trouble'),
+        ('I have trouble concentrating on things, such as reading the newspaper or watching TV', 'q-concentration'),
+        ('I think I would be better off dead or better off hurting myself in some way', 'q-self-harm'),
+    ]
+
+    def build_matrix_table(title, questions):
+        header_style = {"backgroundColor": "#5B21B6", "color": "white", "textAlign": "center", "padding": "10px", "width": "35%"}
+        td_style = {"padding": "8px", "verticalAlign": "middle"}
+        question_td_style = {"padding": "16px 8px 16px 0", "fontSize": "14px", "verticalAlign": "middle", "width": "35%"}
+        answer_td_style = {"padding": "8px", "verticalAlign": "middle", "textAlign": "center", "width": "13.75%"}
+
+        rows = []
+        header_row = html.Tr([
+            html.Th("", style={**header_style, "width": "35%"}),
+            html.Th("Never", style={**header_style, "width": "16.25%", "lineHeight": "1.2", "fontSize": "12px"}),
+            html.Th("Occasionally", style={**header_style, "width": "16.25%", "lineHeight": "1.2", "fontSize": "12px"}),
+            html.Th("Always", style={**header_style, "width": "16.25%", "lineHeight": "1.2", "fontSize": "12px"}),
+            html.Th("I Do Not Know", style={**header_style, "width": "16.25%", "lineHeight": "1.2", "fontSize": "12px"}),
+        ])
+        rows.append(header_row)
+
+        for idx, (question_text, qid) in enumerate(questions):
+            bg_color = "#F5F3FF" if idx % 2 == 1 else "white"
+            row = html.Tr(style={"borderBottom": "1px solid #f0f0f0", "backgroundColor": bg_color}, children=[
+                html.Td(question_text, style={**question_td_style}),
+                html.Td(dcc.RadioItems(id=qid, options=matrix_options, value=None,
+                           style={"display": "flex", "justifyContent": "space-around", "alignItems": "center", "width": "100%"},
+                           inputStyle={"margin": "0", "cursor": "pointer", "transform": "scale(1.2)"},
+                           labelStyle={"margin": "0", "display": "flex"}),
+                       colSpan=4, style={"verticalAlign": "middle"}),
+            ])
+            rows.append(row)
+
+        table = html.Table(children=rows, style={"width": "100%", "borderCollapse": "collapse", "tableLayout": "fixed"})
+
+        return html.Div(dbc.Card([
+            dbc.CardHeader(html.H6(title, className="mb-0 fw-bold")),
+            dbc.CardBody(table)
+        ]), style={"overflowX": "auto"})
 
     sections = []
 
-    sections.append(html.Div(className="questionnaire-section", children=[
+    sections.append(html.Div([
         html.H5("1. Family Medical History", className="fw-semibold"),
-        html.P("Have any of your family members experienced any of the following conditions?", className="text-muted small mb-3")
-    ]))
-    for q, qid in family_questions:
-        sections.append(html.Div(className="mb-3", children=[
-            html.P(q, className='question-label mb-2'),
-            dbc.RadioItems(
-                id=f'radio-{qid}',
-                options=[
-                    {'label': ' Grand Parent(s) ', 'value': 'Grand Parent(s)'},
-                    {'label': ' Parent(s) ',       'value': 'Parent(s)'},
-                    {'label': ' Uncle/Aunty ',     'value': 'Uncle/Aunty'},
-                    {'label': ' Nobody ',          'value': 'Nobody'}
-                ],
-                value=None,
-                inline=True, className="custom-radio"
-            )
-        ]))
+        html.P("Is there a history of any of the following conditions among your family members or relatives?", className="text-muted small mb-3"),
+        dcc.Dropdown(id='q-family-history', options=family_options, multi=True, placeholder="Select all that apply")
+    ], className="mb-4"))
 
-    sections.append(html.Hr(className="section-divider"))
-    sections.append(html.Div(className="questionnaire-section", children=[
+    sections.append(html.Div([
         html.H5("2. Personal Medical History", className="fw-semibold"),
-        html.P("Do you have any of the following condition(s) that you are managing?", className="text-muted small mb-3")
-    ]))
-    for q, qid in personal_questions:
-        sections.append(html.Div(className="mb-3", children=[
-            html.P(q, className='question-label mb-2'),
-            dbc.RadioItems(
-                id=f'radio-{qid}',
-                options=[
-                    {'label': ' Yes ',                      'value': 'Yes'},
-                    {'label': ' No ',                       'value': 'No'},
-                    {'label': ' Yes, but not on Medication ', 'value': 'Yes, but not on Medication'}
-                ],
-                value='No',
-                inline=True, className="custom-radio"
-            )
-        ]))
+        html.P("Do you have any of the following medical condition(s) that you are currently managing?", className="text-muted small mb-3"),
+        dcc.Dropdown(id='q-current-conditions', options=current_options, multi=True, placeholder="Select all that apply")
+    ], className="mb-4"))
 
-    sections.append(html.Hr(className="section-divider"))
-    sections.append(html.Div(className="questionnaire-section", children=[
-        html.H5("3. Personal Surgical History", className="fw-semibold"),
-        html.P("Have you ever had surgery for any of the following?", className="text-muted small mb-3")
-    ]))
-    for q, qid in surgical_questions:
-        sections.append(html.Div(className="mb-3", children=[
-            html.P(q, className='question-label mb-2'),
-            dbc.RadioItems(
-                id=f'radio-{qid}',
-                options=[{'label': ' Yes ', 'value': 'Yes'}, {'label': ' No ', 'value': 'No'}],
-                value=None,
-                inline=True, className="custom-radio"
-            )
-        ]))
+    sections.append(html.Div([
+        html.H5("3. Past Surgical History", className="fw-semibold"),
+        html.P("Have you ever had surgery for any of the following? If yes, please select and optionally note the year.", className="text-muted small mb-3"),
+        html.Div([
+            html.Div([
+                html.Span("Surgery Type", className="fw-medium"), html.Span("Year (if applicable)", className="fw-medium float-end")
+            ], className="fw-bold mb-2")
+        ]),
+        html.Table([
+            html.Tr([
+                html.Td([
+                    dbc.Checkbox(id=f"{surg[1]}", value=False, label=surg[0])
+                ], style={"padding": "8px", "verticalAlign": "middle", "width": "55%"}),
+                html.Td([
+                    dbc.Input(id=f"{surg[2]}", type="number", min=1900, max=dt.datetime.now().year,
+                             placeholder="Year", style={"width": "90px"})
+                ], style={"padding": "8px", "verticalAlign": "middle", "width": "45%"})
+            ]) for surg in surgery_types
+        ], style={"width": "100%"})
+    ], className="mb-4"))
 
-    sections.append(html.Hr(className="section-divider"))
-    sections.append(html.Div(className="questionnaire-section", children=[
-        html.H5("4. Health Survey Questionnaire", className="fw-semibold"),
-        html.P("Kindly provide valid responses to the following questions", className="text-muted small mb-3")
-    ]))
-    for q, qid in wellness_questions:
-        sections.append(html.Div(className="mb-3", children=[
-            html.P(q, className='question-label mb-2'),
-            dbc.RadioItems(
-                id=f'radio-{qid}',
-                options=[
-                    {'label': ' Never ',        'value': 'Never'},
-                    {'label': ' Occasional ',   'value': 'Occasional'},
-                    {'label': ' Always ',       'value': 'Always'},
-                    {'label': ' I Do Not Know ','value': 'I Do Not Know'}
-                ],
-                value=None,
-                inline=True, className="custom-radio"
-            )
-        ]))
+    sections.append(html.Div([
+        html.H5("4. Healthy Living Survey Questionnaire", className="fw-semibold"),
+        build_matrix_table("FOOD AND NUTRITION", food_nutrition_questions),
+        html.Br(),
+        build_matrix_table("PHYSICAL ACTIVITIES", physical_activity_questions),
+        html.Br(),
+        build_matrix_table("PREVENTIVE CHECKS", preventive_checks_questions),
+        html.Br(),
+        build_matrix_table("MENTAL HEALTH", mental_health_questions),
+    ], className="mb-4"))
 
     return html.Div(sections)
 
@@ -1302,7 +1292,7 @@ def wellness_portal_layout():
         ]),
 
         # Main content
-        html.Div(style={"maxWidth": "560px", "margin": "0 auto", "padding": "32px 16px 80px"}, children=[
+        html.Div(style={"maxWidth": "600px", "margin": "0 auto", "padding": "32px 16px 80px"}, children=[
             # ID lookup card
             html.Div(className="wellness-card", style={"padding": "28px", "marginBottom": "24px"}, children=[
                 html.Label("Member Number / Policy ID", className="avon-label"),
@@ -1342,7 +1332,6 @@ layout = html.Div([
     dcc.Store(id='user-data-store',         data=initial_user_data),
     dcc.Store(id='enrollee-data-store',     data={}),
     dcc.Store(id='submission-trigger',      data=0),
-    dcc.Store(id='questionnaire-responses', data={}),
     dcc.Store(id='session-store',           data=''),
     dcc.Store(id="auth-store",              storage_type="session",
               data={"authenticated": False, "username": None, "providername": None}),
@@ -1518,47 +1507,6 @@ def check_eligibility(url_search, n_clicks, n_submit, enrollee_id, stored_data):
 
 
 # =============================================================================
-# QUESTIONNAIRE RESPONSES
-# =============================================================================
-@callback(
-    Output('questionnaire-responses', 'data'),
-    Input('radio-resp_1_a', 'value'), Input('radio-resp_1_b', 'value'), Input('radio-resp_1_c', 'value'),
-    Input('radio-resp_1_d', 'value'), Input('radio-resp_1_e', 'value'), Input('radio-resp_1_f', 'value'),
-    Input('radio-resp_1_g', 'value'), Input('radio-resp_1_h', 'value'), Input('radio-resp_1_i', 'value'),
-    Input('radio-resp_1_j', 'value'), Input('radio-resp_1_k', 'value'),
-    Input('radio-resp_2_a', 'value'), Input('radio-resp_2_b', 'value'), Input('radio-resp_2_c', 'value'),
-    Input('radio-resp_2_d', 'value'), Input('radio-resp_2_e', 'value'), Input('radio-resp_2_f', 'value'),
-    Input('radio-resp_2_g', 'value'), Input('radio-resp_2_h', 'value'), Input('radio-resp_2_i', 'value'),
-    Input('radio-resp_3_a', 'value'), Input('radio-resp_3_b', 'value'), Input('radio-resp_3_c', 'value'),
-    Input('radio-resp_3_d', 'value'), Input('radio-resp_3_e', 'value'), Input('radio-resp_3_f', 'value'),
-    Input('radio-resp_4_a', 'value'), Input('radio-resp_4_b', 'value'), Input('radio-resp_4_c', 'value'),
-    Input('radio-resp_4_d', 'value'), Input('radio-resp_4_e', 'value'), Input('radio-resp_4_f', 'value'),
-    Input('radio-resp_4_g', 'value'), Input('radio-resp_4_h', 'value'), Input('radio-resp_4_i', 'value'),
-    Input('radio-resp_4_j', 'value'), Input('radio-resp_4_k', 'value'), Input('radio-resp_4_l', 'value'),
-    Input('radio-resp_4_m', 'value'), Input('radio-resp_4_n', 'value'), Input('radio-resp_4_o', 'value'),
-    Input('radio-resp_4_p', 'value'), Input('radio-resp_4_q', 'value'), Input('radio-resp_4_r', 'value'),
-    Input('radio-resp_4_s', 'value'), Input('radio-resp_4_t', 'value'),
-)
-def update_questionnaire_responses(
-        r1a, r1b, r1c, r1d, r1e, r1f, r1g, r1h, r1i, r1j, r1k,
-        r2a, r2b, r2c, r2d, r2e, r2f, r2g, r2h, r2i,
-        r3a, r3b, r3c, r3d, r3e, r3f,
-        r4a, r4b, r4c, r4d, r4e, r4f, r4g, r4h, r4i, r4j, r4k,
-        r4l, r4m, r4n, r4o, r4p, r4q, r4r, r4s, r4t):
-    return {
-        'resp_1_a': r1a, 'resp_1_b': r1b, 'resp_1_c': r1c, 'resp_1_d': r1d, 'resp_1_e': r1e,
-        'resp_1_f': r1f, 'resp_1_g': r1g, 'resp_1_h': r1h, 'resp_1_i': r1i, 'resp_1_j': r1j, 'resp_1_k': r1k,
-        'resp_2_a': r2a, 'resp_2_b': r2b, 'resp_2_c': r2c, 'resp_2_d': r2d, 'resp_2_e': r2e,
-        'resp_2_f': r2f, 'resp_2_g': r2g, 'resp_2_h': r2h, 'resp_2_i': r2i,
-        'resp_3_a': r3a, 'resp_3_b': r3b, 'resp_3_c': r3c, 'resp_3_d': r3d, 'resp_3_e': r3e, 'resp_3_f': r3f,
-        'resp_4_a': r4a, 'resp_4_b': r4b, 'resp_4_c': r4c, 'resp_4_d': r4d, 'resp_4_e': r4e,
-        'resp_4_f': r4f, 'resp_4_g': r4g, 'resp_4_h': r4h, 'resp_4_i': r4i, 'resp_4_j': r4j,
-        'resp_4_k': r4k, 'resp_4_l': r4l, 'resp_4_m': r4m, 'resp_4_n': r4n, 'resp_4_o': r4o,
-        'resp_4_p': r4p, 'resp_4_q': r4q, 'resp_4_r': r4r, 'resp_4_s': r4s, 'resp_4_t': r4t
-    }
-
-
-# =============================================================================
 # PROVIDER OPTIONS
 # =============================================================================
 @callback(
@@ -1684,14 +1632,52 @@ def update_session_store(session_value):
     State('date-picker',             'date'),
     State('session-store',           'data'),
     State('enrollee-data-store',     'data'),
-    State('questionnaire-responses', 'data'),
+    State('q-family-history',         'value'),
+    State('q-current-conditions',   'value'),
+    State('q-surg-caesarean',       'value'),
+    State('q-surg-caesarean-year',   'value'),
+    State('q-surg-fracture',        'value'),
+    State('q-surg-fracture-year',  'value'),
+    State('q-surg-hernia',          'value'),
+    State('q-surg-hernia-year',     'value'),
+    State('q-surg-lump',           'value'),
+    State('q-surg-lump-year',       'value'),
+    State('q-surg-appendix',        'value'),
+    State('q-surg-appendix-year',  'value'),
+    State('q-surg-spine',          'value'),
+    State('q-surg-spine-year',      'value'),
+    State('q-avoid-fat',           'value'),
+    State('q-eats-veg',            'value'),
+    State('q-drinks-water',         'value'),
+    State('q-avoids-alcohol',      'value'),
+    State('q-avoids-tobacco',       'value'),
+    State('q-exercises',           'value'),
+    State('q-weight',              'value'),
+    State('q-sleep-hours',         'value'),
+    State('q-blood-pressure',     'value'),
+    State('q-cholesterol',        'value'),
+    State('q-enjoys-work',        'value'),
+    State('q-social-support',      'value'),
+    State('q-feels-depressed',      'value'),
+    State('q-sleep-trouble',        'value'),
+    State('q-concentration',      'value'),
+    State('q-self-harm',          'value'),
     prevent_initial_call=True
 )
 def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
-                job_type, state, provider, selected_date, session,
-                enrollee_data, questionnaire_responses):
-    if not questionnaire_responses:
-        questionnaire_responses = {}
+                job_type, state, provider, selected_date, session, enrollee_data,
+                q_family_history, q_current_conditions,
+                q_surg_caesarean, q_surg_caesarean_year,
+                q_surg_fracture, q_surg_fracture_year,
+                q_surg_hernia, q_surg_hernia_year,
+                q_surg_lump, q_surg_lump_year,
+                q_surg_appendix, q_surg_appendix_year,
+                q_surg_spine, q_surg_spine_year,
+                q_avoid_fat, q_eats_veg, q_drinks_water, q_avoids_alcohol, q_avoids_tobacco,
+                q_exercises, q_weight, q_sleep_hours,
+                q_blood_pressure, q_cholesterol,
+                q_enjoys_work, q_social_support, q_feels_depressed, q_sleep_trouble,
+                q_concentration, q_self_harm):
     if not submit_clicks or submit_clicks == 0:
         return False, ""
 
@@ -1766,61 +1752,84 @@ def submit_form(submit_clicks, close_clicks, enrollee_id, email, mobile, gender,
     six_week_dt = dt.date.today() + dt.timedelta(weeks=6)
     six_weeks   = six_week_dt.strftime('%A, %d %B %Y')
 
+    if q_family_history:
+        family_history_conditions = ', '.join(q_family_history)
+    else:
+        family_history_conditions = ''
+
+    if q_current_conditions:
+        current_medical_conditions = ', '.join(q_current_conditions)
+    else:
+        current_medical_conditions = ''
+
+    surgeries = []
+    surgery_list = [
+        ('CAESAREAN SECTION', q_surg_caesarean, q_surg_caesarean_year),
+        ('FRACTURE REPAIR', q_surg_fracture, q_surg_fracture_year),
+        ('HERNIA', q_surg_hernia, q_surg_hernia_year),
+        ('LUMP REMOVAL', q_surg_lump, q_surg_lump_year),
+        ('APPENDICECTOMY', q_surg_appendix, q_surg_appendix_year),
+        ('SPINE SURGERY', q_surg_spine, q_surg_spine_year),
+    ]
+    for name, checked, year in surgery_list:
+        if checked:
+            if year:
+                surgeries.append(f"{name} ({year})")
+            else:
+                surgeries.append(name)
+    past_surgeries = ', '.join(surgeries) if surgeries else ''
+
+    date_submitted = dt.datetime.now()
+
     try:
-        insert_query = """
-        INSERT INTO [dbo].[demo_tbl_annual_wellness_enrollee_data] (MemberNo, MemberName, client, policy,policystartdate, policyenddate, email, mobile_num, job_type, age, state, selected_provider,
-        sex, wellness_benefits, selected_date, selected_session,
-        [HIGH BLOOD PRESSURE - Family],[Diabetes - Family],[Cancer - Family],[Asthma - Family],[Arthritis - Family]
-        ,[High Cholesterol],[Heart Attack - Family],[Epilepsy - Family],[Tuberclosis - Family],[Substance Dependency - Family]
-        ,[Mental Illness - Family],[HIGH BLOOD PRESSURE - Personal],[Diabetes - Personal],[Cancer - Personal],[Asthma - Personal]
-        ,[Ulcer - Personal],[Poor Vision - Personal],[Allergy - Personal],[Arthritis/Low Back Pain - Personal],[Anxiety/Depression - Personal]
-        ,[CEASAREAN SECTION],[FRACTURE REPAIR],[HERNIA],[LUMP REMOVAL] ,[APPENDICETOMY],[SPINE SURGERY],[I AVOID EATING FOODS THAT ARE HIGH IN FAT]
-        ,[I AVOID THE USE OR MINIMISE MY EXPOSURE TO ALCOHOL],[I AVOID THE USE OF TOBACCO PRODUCTS],[I AM PHYSICALLY FIT AND EXERCISE AT LEAST 30 MINUTES EVERY DAY]
-        ,[I EAT VEGETABLES AND FRUITS AT LEAST 3 TIMES WEEKLY],[I DRINK 6-8 GLASSES OF WATER A DAY],[I MAINTAIN MY WEIGHT WITHIN THE RECOMMENDATION FOR MY WEIGHT, AGE AND HEIGHT]
-        ,[MY BLOOD PRESSURE IS WITHIN NORMAL RANGE WITHOUT THE USE OF DRUGS],[MY CHOLESTEROL LEVEL IS WITHIN THE NORMAL RANGE]
-        ,[I EASILY MAKE DECISIONS WITHOUT WORRY],[I ENJOY MORE THAN 5 HOURS OF SLEEP AT NIGHT],[I ENJOY MY WORK AND LIFE]
-        ,[I ENJOY THE SUPPORT FROM FRIENDS AND FAMILY],[I FEEL BAD ABOUT MYSELF OR THAT I AM A FAILURE OR HAVE LET MYSELF OR MY FAMILY DOWN]
-        ,[I HAVE POOR APPETITE OR I AM OVER-EATING],[I FEEL DOWN, DEPRESSED, HOPELESS, TIRED OR HAVE LITTLE ENERGY]
-        ,[I HAVE TROUBLE FALLING ASLEEP, STAYING ASLEEP, OR SLEEPING TOO MUCH],[I HAVE NO INTEREST OR PLEASURE IN DOING THINGS]
-        ,[I HAVE TROUBLE CONCENTRATING ON THINGS, SUCH AS READING THE NEWSPAPER, OR WATCHING TV]
-        ,[THOUGHT THAT I WOULD BE BETTER OFF DEAD OR BETTER OFF HURTING MYSELF IN SOME WAY],
-        date_submitted)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """
-        with engine.connect() as conn:
-            cursor = conn.connection.cursor()
-            cursor.execute(insert_query, (
+        conn = engine.raw_connection()
+        cursor = conn.cursor()
+        try:
+            insert_query1 = """
+            INSERT INTO [dbo].[Member_Health_Assessment] (MemberNo, MemberName, Client, Policy, PolicyStartDate, PolicyEndDate, email, mobile_num, job_type, Age, State, Selected_Provider, sex, wellness_benefits, selected_date, selected_session, FamilyHistoryConditions, CurrentMedicalConditions, PastSurgeries, AvoidHighFatFoods, EatsVegetablesAndFruits, DrinksWaterDaily, AvoidsAlcohol, AvoidsTobacco, ExercisesRegularly, MaintainsHealthyWeight, SleepsMoreThan6Hours, BloodPressureNormal, CholesterolNormal, EnjoysWorkAndLife, HasSocialSupport, FeelsDepressedOrTired, HasSleepTrouble, HasConcentrationTrouble, HasSelfHarmThoughts, date_submitted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            cursor.execute(insert_query1, (
                 enrollee_id, enrollee_data['member_name'], client, policy,
                 enrollee_data['policystart'], enrollee_data['policyend'], email, mobile, job_type,
-                age, state, provider, member_gender, benefits, selected_date_str, session,
-                questionnaire_responses.get('resp_1_a') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_b') or 'Grand Parent(s)',
-                questionnaire_responses.get('resp_1_c') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_d') or 'Grand Parent(s)',
-                questionnaire_responses.get('resp_1_e') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_f') or 'Grand Parent(s)',
-                questionnaire_responses.get('resp_1_g') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_h') or 'Grand Parent(s)',
-                questionnaire_responses.get('resp_1_i') or 'Grand Parent(s)', questionnaire_responses.get('resp_1_j') or 'Grand Parent(s)',
-                questionnaire_responses.get('resp_1_k') or 'Grand Parent(s)', questionnaire_responses.get('resp_2_a') or 'Yes',
-                questionnaire_responses.get('resp_2_b') or 'Yes', questionnaire_responses.get('resp_2_c') or 'Yes',
-                questionnaire_responses.get('resp_2_d') or 'Yes', questionnaire_responses.get('resp_2_e') or 'Yes',
-                questionnaire_responses.get('resp_2_f') or 'Yes', questionnaire_responses.get('resp_2_g') or 'Yes',
-                questionnaire_responses.get('resp_2_h') or 'Yes', questionnaire_responses.get('resp_2_i') or 'Yes',
-                questionnaire_responses.get('resp_3_a') or 'Yes', questionnaire_responses.get('resp_3_b') or 'Yes',
-                questionnaire_responses.get('resp_3_c') or 'Yes', questionnaire_responses.get('resp_3_d') or 'Yes',
-                questionnaire_responses.get('resp_3_e') or 'Yes', questionnaire_responses.get('resp_3_f') or 'Yes',
-                questionnaire_responses.get('resp_4_a') or 'Never', questionnaire_responses.get('resp_4_b') or 'Never',
-                questionnaire_responses.get('resp_4_c') or 'Never', questionnaire_responses.get('resp_4_d') or 'Never',
-                questionnaire_responses.get('resp_4_e') or 'Never', questionnaire_responses.get('resp_4_f') or 'Never',
-                questionnaire_responses.get('resp_4_g') or 'Never', questionnaire_responses.get('resp_4_h') or 'Never',
-                questionnaire_responses.get('resp_4_i') or 'Never', questionnaire_responses.get('resp_4_j') or 'Never',
-                questionnaire_responses.get('resp_4_k') or 'Never', questionnaire_responses.get('resp_4_l') or 'Never',
-                questionnaire_responses.get('resp_4_m') or 'Never', questionnaire_responses.get('resp_4_n') or 'Never',
-                questionnaire_responses.get('resp_4_o') or 'Never', questionnaire_responses.get('resp_4_p') or 'Never',
-                questionnaire_responses.get('resp_4_q') or 'Never', questionnaire_responses.get('resp_4_r') or 'Never',
-                questionnaire_responses.get('resp_4_s') or 'Never', questionnaire_responses.get('resp_4_t') or 'Never',
-                dt.datetime.now()
+                age, state, provider, member_gender, benefits,
+                None if date_communicated else selected_date_str, session,
+                family_history_conditions, current_medical_conditions, past_surgeries,
+                q_avoid_fat, q_eats_veg, q_drinks_water, q_avoids_alcohol, q_avoids_tobacco,
+                q_exercises, q_weight, q_sleep_hours,
+                q_blood_pressure, q_cholesterol,
+                q_enjoys_work, q_social_support, q_feels_depressed, q_sleep_trouble,
+                q_concentration, q_self_harm, date_submitted
             ))
-            conn.connection.commit()
 
-        date_submitted_str = dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute("SELECT SCOPE_IDENTITY()")
+            result = cursor.fetchone()
+            assessment_id = result[0] if result else None
+
+            booking_reference = f"WB-{dt.datetime.now().strftime('%Y%m%d')}-{str(assessment_id).zfill(5)}"
+
+            insert_query2 = """
+            INSERT INTO [dbo].[wellness_booking_details] (AssessmentID, MemberNo, MemberName, Client, Policy, PolicyStartDate, PolicyEndDate, email, mobile_num, job_type, Age, State, Selected_Provider, sex, wellness_benefits, selected_date, selected_session, date_submitted, booking_status, booking_reference)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            cursor.execute(insert_query2, (
+                assessment_id, enrollee_id, enrollee_data['member_name'], client, policy,
+                enrollee_data['policystart'], enrollee_data['policyend'], email, mobile, job_type,
+                age, state, provider, member_gender, benefits,
+                None if date_communicated else selected_date_str, session,
+                date_submitted, 'Pending', booking_reference
+            ))
+
+            conn.commit()
+
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
+        date_submitted_str = date_submitted.strftime('%Y-%m-%d %H:%M:%S')
         sender_email   = 'noreply@avonhealthcare.com'
         email_password = os.environ.get('email_password')
         recipient_email = 'ifeoluwa.adeniyi@avonhealthcare.com'
